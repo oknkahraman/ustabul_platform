@@ -61,17 +61,41 @@ const LoginForm = () => {
       });
 
       console.log('✅ Login successful:', response?.data);
-
-      // Store auth token and user info
+      
+      // CRITICAL FIX: Store ALL user data from backend response
+      const userData = response?.data?.user;
+      
       localStorage.setItem('authToken', response?.data?.token);
-      localStorage.setItem('userRole', response?.data?.user?.role);
-      localStorage.setItem('userId', response?.data?.user?.id);
+      localStorage.setItem('userRole', userData?.role);
+      localStorage.setItem('userId', userData?._id || userData?.id); // Handle both MongoDB and generic ID
+      localStorage.setItem('userName', userData?.fullName || userData?.name); // Save actual user name
+      localStorage.setItem('userEmail', userData?.email);
+      
+      // Store additional data if available
+      if (userData?.phone) {
+        localStorage.setItem('userPhone', userData?.phone);
+      }
+      
+      if (userData?.companyName) {
+        localStorage.setItem('companyName', userData?.companyName);
+      }
 
-      // Navigate based on role
-      if (response?.data?.user?.role === 'worker') {
+      console.log('💾 Saved to localStorage:', {
+        userId: userData?._id || userData?.id,
+        userName: userData?.fullName || userData?.name,
+        userRole: userData?.role,
+        companyName: userData?.companyName
+      });
+
+      // Navigate to appropriate dashboard
+      if (userData?.role === 'worker') {
         navigate('/worker-dashboard');
-      } else {
+      } else if (userData?.role === 'employer') {
         navigate('/employer-dashboard');
+      } else if (userData?.role === 'admin') {
+        navigate('/admin-dashboard');
+      } else {
+        navigate('/homepage');
       }
     } catch (error) {
       console.error('❌ Login error:', error);
@@ -97,7 +121,9 @@ const LoginForm = () => {
         }
       } else if (error?.request) {
         console.error('No response from server:', error?.request);
-        errorMessage = '🔌 Sunucuya bağlanılamıyor. Backend API\'nin çalıştığından emin olun.';
+        errorMessage = '🔌 Sunucuya bağlanılamıyor.\n\n'+ 'Backend API çalışmıyor olabilir. Kontrol edin:\n'+ '1. Backend sunucusu başlatıldı mı? (npm start)\n'+ '2. MongoDB bağlantısı çalışıyor mu?\n' +
+                      `3. API URL doğru mu? ${import.meta.env?.VITE_API_BASE_URL || 'http://localhost:5000/api'}\n\n` +
+                      'Detaylı kurulum: backend-setup-guide.md';
       } else {
         console.error('Request setup error:', error?.message);
         errorMessage = `İstek hatası: ${error?.message}`;

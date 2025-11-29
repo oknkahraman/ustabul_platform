@@ -1,281 +1,165 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AuthenticatedNavigation from '../../components/navigation/AuthenticatedNavigation';
-import JobCard from './components/JobCard';
-import ApplicationStatusCard from './components/ApplicationStatusCard';
 import MetricsCard from './components/MetricsCard';
 import FilterPanel from './components/FilterPanel';
-import PortfolioQuickView from './components/PortfolioQuickView';
+import JobCard from './components/JobCard';
 import NotificationPanel from './components/NotificationPanel';
+import PortfolioQuickView from './components/PortfolioQuickView';
+import ApplicationStatusCard from './components/ApplicationStatusCard';
 import Button from '../../components/ui/Button';
+import { jobsAPI, workersAPI, applicationsAPI } from '../../utils/api';
 import Icon from '../../components/AppIcon';
+
 
 const WorkerDashboard = () => {
   const navigate = useNavigate();
-  const [filters, setFilters] = useState({
-    skillCategory: 'all',
-    sortBy: 'distance',
-    urgency: 'all',
-    maxDistance: '50',
-    resultCount: 12
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [dashboardData, setDashboardData] = useState({
+    profile: null,
+    nearbyJobs: [],
+    applications: [],
+    stats: {
+      totalApplications: 0,
+      pendingApplications: 0,
+      acceptedApplications: 0,
+      profileViews: 0
+    }
   });
 
-  const [notifications, setNotifications] = useState([
-  {
-    id: 1,
-    type: 'job-match',
-    title: 'Yeni İş Eşleşmesi',
-    message: 'Becerilerinize uygun 3 yeni iş ilanı bulundu. Hemen inceleyin!',
-    timestamp: new Date(Date.now() - 300000),
-    read: false
-  },
-  {
-    id: 2,
-    type: 'application-response',
-    title: 'Başvurunuz Onaylandı',
-    message: 'Demir Çelik A.Ş. - Kaynak Ustası pozisyonu için başvurunuz onaylandı.',
-    timestamp: new Date(Date.now() - 3600000),
-    read: false
-  },
-  {
-    id: 3,
-    type: 'rating-request',
-    title: 'Değerlendirme Bekleniyor',
-    message: 'Tamamladığınız iş için işvereni değerlendirmeniz bekleniyor.',
-    timestamp: new Date(Date.now() - 7200000),
-    read: true
-  },
-  {
-    id: 4,
-    type: 'message',
-    title: 'Yeni Mesaj',
-    message: 'Makina Sanayi Ltd. şirketinden yeni bir mesajınız var.',
-    timestamp: new Date(Date.now() - 86400000),
-    read: true
-  }]
-  );
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true);
+        setError('');
+        
+        const userId = localStorage.getItem('userId');
+        
+        if (!userId) {
+          throw new Error('Kullanıcı oturumu bulunamadı');
+        }
 
-  const mockJobs = [
-  {
-    id: 1,
-    title: 'Kaynak Ustası',
-    companyName: 'Demir Çelik Sanayi A.Ş.',
-    companyLogo: "https://images.unsplash.com/photo-1660138118832-fcc61dcb28fa",
-    companyLogoAlt: 'Modern industrial steel manufacturing facility with blue and silver company branding logo',
-    location: 'Gebze OSB, Kocaeli',
-    distance: 3.2,
-    requiredSkills: ['TIG Kaynak', 'MIG Kaynak', 'Paslanmaz Çelik'],
-    description: 'Paslanmaz çelik konstrüksiyon projesi için deneyimli kaynak ustası aranmaktadır. TIG ve MIG kaynak sertifikası gereklidir.',
-    payment: '450-550 TL/gün',
-    duration: '2 hafta',
-    startDate: '02.12.2025',
-    urgency: 'urgent'
-  },
-  {
-    id: 2,
-    title: 'CNC Torna Operatörü',
-    companyName: 'Hassas Makina Ltd.',
-    companyLogo: "https://img.rocket.new/generatedImages/rocket_gen_img_1f1b55d95-1764276056698.png",
-    companyLogoAlt: 'High-tech precision machinery workshop with modern CNC equipment and professional company logo',
-    location: 'İkitelli OSB, İstanbul',
-    distance: 8.5,
-    requiredSkills: ['CNC Torna', 'Fanuc Kontrol', 'Teknik Resim'],
-    description: 'Otomotiv yan sanayi parçaları üretimi için CNC torna operatörü alınacaktır. Fanuc kontrol deneyimi şarttır.',
-    payment: '400-500 TL/gün',
-    duration: '1 ay',
-    startDate: '04.12.2025',
-    urgency: 'high'
-  },
-  {
-    id: 3,
-    title: 'Elektrik Teknisyeni',
-    companyName: 'Enerji Sistemleri A.Ş.',
-    companyLogo: "https://img.rocket.new/generatedImages/rocket_gen_img_1ff91c12a-1764276057467.png",
-    companyLogoAlt: 'Professional electrical systems company office with modern technology and energy-focused branding',
-    location: 'Tuzla OSB, İstanbul',
-    distance: 12.3,
-    requiredSkills: ['Endüstriyel Elektrik', 'PLC', 'Pano Montajı'],
-    description: 'Fabrika elektrik tesisatı bakım ve onarım işleri için deneyimli elektrik teknisyeni aranıyor.',
-    payment: '380-450 TL/gün',
-    duration: '3 hafta',
-    startDate: '05.12.2025',
-    urgency: 'normal'
-  },
-  {
-    id: 4,
-    title: 'Freze Ustası',
-    companyName: 'Metal İşleme San. Tic.',
-    companyLogo: "https://img.rocket.new/generatedImages/rocket_gen_img_1927f3370-1764276055077.png",
-    companyLogoAlt: 'Industrial metal processing workshop with traditional milling machines and craftsmanship-focused logo',
-    location: 'Dudullu OSB, İstanbul',
-    distance: 15.7,
-    requiredSkills: ['Konvansiyonel Freze', 'Ölçü Aleti Kullanımı', 'Kalıp İmalatı'],
-    description: 'Kalıp imalatı için konvansiyonel freze ustası alınacaktır. En az 5 yıl deneyim şartı aranmaktadır.',
-    payment: '420-520 TL/gün',
-    duration: '2 ay',
-    startDate: '10.12.2025',
-    urgency: 'normal'
-  },
-  {
-    id: 5,
-    title: 'Hidrolik Teknisyeni',
-    companyName: 'Hidrolik Sistemler Ltd.',
-    companyLogo: "https://img.rocket.new/generatedImages/rocket_gen_img_1ceec91ed-1764276056318.png",
-    companyLogoAlt: 'Modern hydraulic systems company facility with blue and orange industrial equipment branding',
-    location: 'Gebze OSB, Kocaeli',
-    distance: 4.8,
-    requiredSkills: ['Hidrolik Sistemler', 'Bakım-Onarım', 'Arıza Tespiti'],
-    description: 'Endüstriyel hidrolik sistemlerin bakım ve onarımı için deneyimli teknisyen aranmaktadır.',
-    payment: '350-430 TL/gün',
-    duration: '1 hafta',
-    startDate: '28.11.2025',
-    urgency: 'urgent'
-  },
-  {
-    id: 6,
-    title: 'Boru Kaynakçısı',
-    companyName: 'Petrokimya Tesisat A.Ş.',
-    companyLogo: "https://img.rocket.new/generatedImages/rocket_gen_img_19d0c2cea-1764276056432.png",
-    companyLogoAlt: 'Petrochemical industrial facility with large pipeline infrastructure and professional company emblem',
-    location: 'Çayırova OSB, Kocaeli',
-    distance: 6.2,
-    requiredSkills: ['Boru Kaynağı', 'Argon Kaynağı', 'X-Ray Testi'],
-    description: 'Petrokimya tesisatı projesi için boru kaynağı konusunda uzman kaynak ustası alınacaktır.',
-    payment: '500-600 TL/gün',
-    duration: '1.5 ay',
-    startDate: '15.12.2025',
-    urgency: 'high'
-  }];
+        console.log('📊 Fetching dashboard data for worker:', userId);
 
+        // Fetch worker profile and dashboard data
+        const [profileRes, jobsRes, applicationsRes] = await Promise.all([
+          workersAPI?.getWorkerProfile(userId)?.catch(err => {
+            console.warn('⚠️ Profile fetch failed:', err?.message);
+            return null;
+          }),
+          jobsAPI?.getAllJobs({ limit: 20, nearby: true })?.catch(err => {
+            console.warn('⚠️ Jobs fetch failed:', err?.message);
+            return { data: [] };
+          }),
+          applicationsAPI?.getApplicationsByWorker(userId)?.catch(err => {
+            console.warn('⚠️ Applications fetch failed:', err?.message);
+            return { data: [] };
+          })
+        ]);
 
-  const mockApplications = [
-  {
-    id: 1,
-    jobTitle: 'Kaynak Ustası',
-    companyName: 'Demir Çelik A.Ş.',
-    status: 'approved',
-    appliedDate: '25.11.2025',
-    nextAction: 'Check-in Yapın',
-    progress: 75
-  },
-  {
-    id: 2,
-    jobTitle: 'CNC Operatörü',
-    companyName: 'Hassas Makina Ltd.',
-    status: 'pending',
-    appliedDate: '26.11.2025',
-    nextAction: null,
-    progress: 25
-  },
-  {
-    id: 3,
-    jobTitle: 'Elektrik Teknisyeni',
-    companyName: 'Enerji Sistemleri',
-    status: 'in-progress',
-    appliedDate: '20.11.2025',
-    nextAction: 'İşi Tamamlayın',
-    progress: 60
-  },
-  {
-    id: 4,
-    jobTitle: 'Freze Ustası',
-    companyName: 'Metal İşleme',
-    status: 'completed',
-    appliedDate: '15.11.2025',
-    nextAction: 'Değerlendirme Yapın',
-    progress: 100
-  }];
+        const profile = profileRes?.data;
+        const jobs = jobsRes?.data || [];
+        const applications = applicationsRes?.data || [];
 
+        // Calculate stats
+        const stats = {
+          totalApplications: applications?.length || 0,
+          pendingApplications: applications?.filter(app => app?.status === 'pending')?.length || 0,
+          acceptedApplications: applications?.filter(app => app?.status === 'accepted')?.length || 0,
+          profileViews: profile?.profileViews || 0
+        };
 
-  const mockPortfolio = {
-    totalImages: 24,
-    verifiedImages: 18,
-    pendingVerification: 3,
-    completionRate: 75,
-    recentImages: [
-    {
-      url: "https://img.rocket.new/generatedImages/rocket_gen_img_1ada9e919-1764276060053.png",
-      alt: 'Professional TIG welding work on stainless steel pipe joint showing precise bead formation and clean finish',
-      verified: true
-    },
-    {
-      url: "https://img.rocket.new/generatedImages/rocket_gen_img_120d90f65-1764276057754.png",
-      alt: 'CNC machining operation on precision metal part with visible cutting tool and metal chips',
-      verified: true
-    },
-    {
-      url: "https://images.unsplash.com/photo-1703441307505-a97ce40a31a0",
-      alt: 'Completed industrial metal fabrication project showing welded steel frame structure in workshop setting',
-      verified: false
-    }]
+        setDashboardData({
+          profile,
+          nearbyJobs: jobs,
+          applications,
+          stats
+        });
 
-  };
+        console.log('✅ Dashboard data loaded:', {
+          profileExists: !!profile,
+          jobsCount: jobs?.length,
+          applicationsCount: applications?.length
+        });
 
-  const handleFilterChange = (key, value) => {
-    setFilters((prev) => ({
-      ...prev,
-      [key]: value
-    }));
-  };
+      } catch (err) {
+        console.error('❌ Dashboard data fetch error:', err);
+        setError(
+          err?.response?.data?.message || 
+          err?.userMessage ||
+          'Veriler yüklenirken bir hata oluştu'
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const handleResetFilters = () => {
-    setFilters({
-      skillCategory: 'all',
-      sortBy: 'distance',
-      urgency: 'all',
-      maxDistance: '50',
-      resultCount: 12
-    });
-  };
-
-  const handleViewJobDetails = (job) => {
-    console.log('Viewing job details:', job);
-  };
-
-  const handleApplyToJob = (job) => {
-    console.log('Applying to job:', job);
-  };
-
-  const handleViewApplicationDetails = (application) => {
-    console.log('Viewing application details:', application);
-  };
-
-  const handleManagePortfolio = () => {
-    navigate('/worker-profile-setup');
-  };
-
-  const handleMarkAsRead = (notificationId) => {
-    setNotifications((prev) =>
-    prev?.map((notification) =>
-    notification?.id === notificationId ?
-    { ...notification, read: true } :
-    notification
-    )
-    );
-  };
-
-  const handleViewAllNotifications = () => {
-    console.log('Viewing all notifications');
-  };
+    fetchDashboardData();
+  }, []);
 
   const handleLogout = () => {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('userId');
+    localStorage.removeItem('userName');
+    localStorage.removeItem('userEmail');
     navigate('/homepage');
   };
 
-  const unreadNotificationCount = notifications?.filter((n) => !n?.read)?.length;
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <AuthenticatedNavigation
+          userRole="worker"
+          userName={localStorage.getItem('userName') || 'Kullanıcı'}
+          notificationCount={0}
+          onLogout={handleLogout}
+        />
+        <div className="flex items-center justify-center h-[calc(100vh-80px)]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Yükleniyor...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-background">
+        <AuthenticatedNavigation
+          userRole="worker"
+          userName={localStorage.getItem('userName') || 'Kullanıcı'}
+          notificationCount={0}
+          onLogout={handleLogout}
+        />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="bg-error/10 border border-error/20 rounded-lg p-6 text-center">
+            <p className="text-error mb-4">{error}</p>
+            <Button onClick={() => window.location?.reload()}>
+              Tekrar Dene
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
       <AuthenticatedNavigation
         userRole="worker"
-        userName="Mehmet Yılmaz"
-        notificationCount={unreadNotificationCount}
-        onLogout={handleLogout} />
+        userName={localStorage.getItem('userName') || 'Kullanıcı'}
+        notificationCount={dashboardData?.applications?.filter(app => app?.status === 'pending')?.length || 0}
+        onLogout={handleLogout}
+      />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-heading font-bold text-foreground mb-2">
-            Hoş Geldiniz, Mehmet Yılmaz
+            Hoş Geldiniz, {localStorage.getItem('userName') || 'Kullanıcı'}
           </h1>
           <p className="text-muted-foreground">
             Becerilerinize uygun iş fırsatlarını keşfedin ve başvurularınızı yönetin
@@ -286,93 +170,129 @@ const WorkerDashboard = () => {
           <MetricsCard
             icon="Briefcase"
             label="Aktif Başvurular"
-            value="3"
-            subValue="2 onay bekliyor"
+            value={dashboardData?.applications?.filter(a => a?.status === 'pending')?.length?.toString() || "0"}
+            subValue={`${dashboardData?.applications?.filter(a => a?.status === 'pending')?.length || 0} onay bekliyor`}
             color="primary"
-            trend={0} />
+            trend={0}
+          />
 
           <MetricsCard
             icon="CheckCircle2"
             label="Tamamlanan İşler"
-            value="47"
+            value={dashboardData?.applications?.filter(a => a?.status === 'completed')?.length?.toString() || "0"}
             subValue="Son 6 ay"
-            trend={12}
-            color="success" />
+            trend={0}
+            color="success"
+          />
 
           <MetricsCard
             icon="Star"
             label="Güvenilirlik Skoru"
-            value="4.8"
-            subValue="5 üzerinden"
-            trend={5}
-            color="warning" />
+            value="0.0"
+            subValue="Henüz değerlendirme yok"
+            trend={0}
+            color="warning"
+          />
 
           <MetricsCard
             icon="TrendingUp"
             label="Ortalama Kazanç"
-            value="18.500 TL"
+            value="0 TL"
             subValue="Aylık ortalama"
-            trend={8}
-            color="accent" />
-
+            trend={0}
+            color="accent"
+          />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           <div className="lg:col-span-2">
             <FilterPanel
-              filters={filters}
-              onFilterChange={handleFilterChange}
-              onResetFilters={handleResetFilters} />
-
+              filters={dashboardData?.stats || {}}
+              onFilterChange={() => {}}
+              onResetFilters={() => {}}
+            />
 
             <div className="mb-4">
               <h2 className="text-xl font-heading font-semibold text-foreground mb-4">
                 Size Uygun İş İlanları
               </h2>
-              <div className="space-y-4">
-                {mockJobs?.map((job) =>
-                <JobCard
-                  key={job?.id}
-                  job={job}
-                  onViewDetails={handleViewJobDetails}
-                  onApply={handleApplyToJob} />
-
-                )}
-              </div>
-            </div>
-
-            <div className="flex justify-center mt-6">
-              <Button variant="outline" iconName="ChevronDown">
-                Daha Fazla İlan Göster
-              </Button>
+              {dashboardData?.nearbyJobs?.length > 0 ? (
+                <>
+                  <div className="space-y-4">
+                    {dashboardData?.nearbyJobs?.map((job) => (
+                      <JobCard
+                        key={job?.id}
+                        job={job}
+                        onViewDetails={() => {}}
+                        onApply={() => {}}
+                      />
+                    ))}
+                  </div>
+                  <div className="flex justify-center mt-6">
+                    <Button variant="outline" iconName="ChevronDown">
+                      Daha Fazla İlan Göster
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <div className="bg-card border border-border rounded-lg p-8 text-center">
+                  <Icon name="Briefcase" size={48} color="var(--color-muted-foreground)" className="mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-foreground mb-2">
+                    Henüz İş İlanı Bulunmuyor
+                  </h3>
+                  <p className="text-muted-foreground mb-4">
+                    Şu anda size uygun aktif iş ilanı bulunmamaktadır. Lütfen daha sonra tekrar kontrol edin.
+                  </p>
+                  <Button variant="outline" onClick={() => {}}>
+                    Filtreleri Sıfırla
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
 
           <div className="space-y-6">
-            <NotificationPanel
-              notifications={notifications}
-              onMarkAsRead={handleMarkAsRead}
-              onViewAll={handleViewAllNotifications} />
-
+            {dashboardData?.applications?.length > 0 && (
+              <NotificationPanel
+                notifications={dashboardData?.applications?.filter(app => app?.status === 'pending')}
+                onMarkAsRead={() => {}}
+                onViewAll={() => {}}
+              />
+            )}
 
             <PortfolioQuickView
-              portfolio={mockPortfolio}
-              onManagePortfolio={handleManagePortfolio} />
-
+              portfolio={dashboardData?.profile?.portfolio || {
+                totalImages: 0,
+                verifiedImages: 0,
+                pendingVerification: 0,
+                completionRate: 0,
+                recentImages: []
+              }}
+              onManagePortfolio={() => {}}
+            />
 
             <div className="bg-card border border-border rounded-lg p-6">
               <h3 className="text-lg font-heading font-semibold text-foreground mb-4">
                 Başvuru Durumları
               </h3>
-              <div className="space-y-3">
-                {mockApplications?.map((application) =>
-                <ApplicationStatusCard
-                  key={application?.id}
-                  application={application}
-                  onViewDetails={handleViewApplicationDetails} />
-
-                )}
-              </div>
+              {dashboardData?.applications?.length > 0 ? (
+                <div className="space-y-3">
+                  {dashboardData?.applications?.map((application) => (
+                    <ApplicationStatusCard
+                      key={application?.id}
+                      application={application}
+                      onViewDetails={() => {}}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <Icon name="FileText" size={40} color="var(--color-muted-foreground)" className="mx-auto mb-3" />
+                  <p className="text-sm text-muted-foreground">
+                    Henüz başvuru yapmadınız
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="bg-gradient-to-br from-primary/10 to-accent/10 border border-primary/20 rounded-lg p-6">
@@ -385,9 +305,9 @@ const WorkerDashboard = () => {
                     Portfolyonuzu Güçlendirin
                   </h4>
                   <p className="text-sm text-muted-foreground mb-3">
-                    Daha fazla doğrulanmış fotoğraf ekleyerek iş bulma şansınızı %40 artırın
+                    Daha fazla doğrulanmış fotoğraf ekleyerek iş bulma şansınızı artırın
                   </p>
-                  <Button variant="default" size="sm" onClick={handleManagePortfolio} iconName="Upload">
+                  <Button variant="default" size="sm" onClick={() => {}} iconName="Upload">
                     Fotoğraf Ekle
                   </Button>
                 </div>
@@ -396,8 +316,8 @@ const WorkerDashboard = () => {
           </div>
         </div>
       </main>
-    </div>);
-
+    </div>
+  );
 };
 
 export default WorkerDashboard;

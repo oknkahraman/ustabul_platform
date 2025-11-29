@@ -3,57 +3,49 @@ import { useNavigate } from 'react-router-dom';
 import AuthenticatedNavigation from '../../components/navigation/AuthenticatedNavigation';
 import Button from '../../components/ui/Button';
 import Icon from '../../components/AppIcon';
-import CompanyDetailsForm from './components/CompanyDetailsForm';
-import LocationSettingsForm from './components/LocationSettingsForm';
-import BusinessVerificationForm from './components/BusinessVerificationForm';
-import PaymentReliabilityForm from './components/PaymentReliabilityForm';
-import CompanyDescriptionForm from './components/CompanyDescriptionForm';
-import IndustrySpecializationForm from './components/IndustrySpecializationForm';
-import ProgressIndicator from './components/ProgressIndicator';
+import Input from '../../components/ui/Input';
+import { employersAPI } from '../../utils/api';
 
 const EmployerProfileSetup = () => {
   const navigate = useNavigate();
-  const [currentStep, setCurrentStep] = useState(1);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
     companyName: '',
     taxNumber: '',
-    sector: '',
-    companySize: '',
-    tradeRegistryNumber: '',
-    foundedYear: '',
+    taxOffice: '',
+    companyLogo: null,
+    logoPreview: '',
     city: '',
     district: '',
     neighborhood: '',
     street: '',
     buildingNumber: '',
-    postalCode: '',
-    searchRadius: '30',
-    chamberMembershipNumber: '',
-    authorizedPersonName: '',
-    authorizedPersonId: '',
-    bankName: '',
-    iban: '',
-    preferredPaymentMethod: [],
-    paymentTerm: '',
-    guaranteeTimely: false,
-    canPayAdvance: false,
-    payInsurance: false,
-    companyDescription: '',
-    facilityType: '',
-    projectTypes: [],
-    employeeCount: '',
-    productionArea: '',
-    workEnvironment: '',
-    requiredSkills: []
+    postalCode: ''
   });
 
   const [errors, setErrors] = useState({});
 
+  // Load user data from localStorage on mount
   useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [currentStep]);
+    const userName = localStorage.getItem('userName');
+    const companyName = localStorage.getItem('companyName');
+    
+    if (companyName) {
+      setFormData(prev => ({
+        ...prev,
+        companyName: companyName
+      }));
+    }
+  }, []);
+
+  const turkishCities = [
+    'İstanbul', 'Ankara', 'İzmir', 'Bursa', 'Antalya', 'Adana', 'Konya', 
+    'Gaziantep', 'Şanlıurfa', 'Kocaeli', 'Mersin', 'Diyarbakır', 'Hatay',
+    'Manisa', 'Kayseri', 'Samsun', 'Balıkesir', 'Kahramanmaraş', 'Van',
+    'Aydın', 'Denizli', 'Sakarya', 'Tekirdağ', 'Muğla', 'Eskişehir'
+  ];
 
   const handleInputChange = (e) => {
     const { name, value } = e?.target;
@@ -69,159 +61,131 @@ const EmployerProfileSetup = () => {
     }
   };
 
-  const handleCheckboxChange = (name, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+  const handleLogoUpload = (e) => {
+    const file = e?.target?.files?.[0];
+    if (file) {
+      if (file?.size > 2 * 1024 * 1024) {
+        setErrors(prev => ({ ...prev, companyLogo: 'Dosya boyutu 2MB\'dan küçük olmalıdır' }));
+        return;
+      }
+      
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormData(prev => ({
+          ...prev,
+          companyLogo: file,
+          logoPreview: reader?.result
+        }));
+        setErrors(prev => ({ ...prev, companyLogo: '' }));
+      };
+      reader?.readAsDataURL(file);
+    }
   };
 
-  const handleFileUpload = (docType, file) => {
-    console.log(`Uploading ${docType}:`, file?.name);
-  };
-
-  const validateStep = (step) => {
+  const validateForm = () => {
     const newErrors = {};
 
-    switch (step) {
-      case 1:
-        if (!formData?.companyName?.trim()) newErrors.companyName = 'Şirket adı zorunludur';
-        if (!formData?.taxNumber?.trim()) newErrors.taxNumber = 'Vergi numarası zorunludur';
-        if (formData?.taxNumber?.length !== 10) newErrors.taxNumber = 'Vergi numarası 10 haneli olmalıdır';
-        if (!formData?.sector) newErrors.sector = 'Sektör seçimi zorunludur';
-        if (!formData?.companySize) newErrors.companySize = 'Şirket büyüklüğü seçimi zorunludur';
-        break;
+    if (!formData?.companyName?.trim()) {
+      newErrors.companyName = 'Şirket adı zorunludur';
+    }
 
-      case 2:
-        if (!formData?.city) newErrors.city = 'İl seçimi zorunludur';
-        if (!formData?.district?.trim()) newErrors.district = 'İlçe zorunludur';
-        if (!formData?.neighborhood?.trim()) newErrors.neighborhood = 'Mahalle zorunludur';
-        if (!formData?.street?.trim()) newErrors.street = 'Cadde/Sokak zorunludur';
-        if (!formData?.searchRadius) newErrors.searchRadius = 'Arama yarıçapı seçimi zorunludur';
-        break;
+    if (!formData?.taxNumber?.trim()) {
+      newErrors.taxNumber = 'Vergi numarası zorunludur';
+    } else if (formData?.taxNumber?.length !== 10) {
+      newErrors.taxNumber = 'Vergi numarası 10 haneli olmalıdır';
+    } else if (!/^\d+$/?.test(formData?.taxNumber)) {
+      newErrors.taxNumber = 'Vergi numarası sadece rakamlardan oluşmalıdır';
+    }
 
-      case 3:
-        if (!formData?.authorizedPersonName?.trim()) newErrors.authorizedPersonName = 'Yetkili kişi adı zorunludur';
-        if (!formData?.authorizedPersonId?.trim()) newErrors.authorizedPersonId = 'TC kimlik numarası zorunludur';
-        if (formData?.authorizedPersonId?.length !== 11) newErrors.authorizedPersonId = 'TC kimlik numarası 11 haneli olmalıdır';
-        break;
+    if (!formData?.taxOffice?.trim()) {
+      newErrors.taxOffice = 'Vergi dairesi zorunludur';
+    }
 
-      case 4:
-        if (!formData?.bankName?.trim()) newErrors.bankName = 'Banka adı zorunludur';
-        if (!formData?.iban?.trim()) newErrors.iban = 'IBAN zorunludur';
-        if (!formData?.preferredPaymentMethod?.length) newErrors.preferredPaymentMethod = 'En az bir ödeme yöntemi seçmelisiniz';
-        if (!formData?.paymentTerm) newErrors.paymentTerm = 'Ödeme vadesi seçimi zorunludur';
-        break;
+    if (!formData?.city) {
+      newErrors.city = 'İl seçimi zorunludur';
+    }
 
-      case 5:
-        if (!formData?.companyDescription?.trim()) newErrors.companyDescription = 'Şirket açıklaması zorunludur';
-        if (formData?.companyDescription?.length < 100) newErrors.companyDescription = 'Şirket açıklaması en az 100 karakter olmalıdır';
-        if (!formData?.facilityType) newErrors.facilityType = 'Tesis tipi seçimi zorunludur';
-        if (!formData?.projectTypes?.length) newErrors.projectTypes = 'En az bir proje türü seçmelisiniz';
-        break;
+    if (!formData?.district?.trim()) {
+      newErrors.district = 'İlçe zorunludur';
+    }
 
-      case 6:
-        if (!formData?.requiredSkills?.length) newErrors.requiredSkills = 'En az bir yetenek seçmelisiniz';
-        if (formData?.requiredSkills?.length < 3) newErrors.requiredSkills = 'En az 3 yetenek seçmeniz önerilir';
-        break;
+    if (!formData?.neighborhood?.trim()) {
+      newErrors.neighborhood = 'Mahalle zorunludur';
+    }
 
-      default:
-        break;
+    if (!formData?.street?.trim()) {
+      newErrors.street = 'Cadde/Sokak zorunludur';
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors)?.length === 0;
   };
 
-  const handleNext = () => {
-    if (validateStep(currentStep)) {
-      if (currentStep < 6) {
-        setCurrentStep(prev => prev + 1);
+  const handleSubmit = async () => {
+    if (!validateForm()) {
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      setErrors({});
+      
+      const employerId = localStorage.getItem('userId');
+      
+      if (!employerId) {
+        throw new Error('Kullanıcı oturumu bulunamadı');
       }
-    }
-  };
+      
+      // Prepare form data for multipart upload if logo exists
+      let logoUrl = null;
+      
+      if (formData?.companyLogo) {
+        // TODO: Implement logo upload to backend storage
+        // For now, use base64 preview as placeholder
+        logoUrl = formData?.logoPreview;
+      }
 
-  const handlePrevious = () => {
-    if (currentStep > 1) {
-      setCurrentStep(prev => prev - 1);
-    }
-  };
+      const profileData = {
+        companyName: formData?.companyName,
+        taxNumber: formData?.taxNumber,
+        taxOffice: formData?.taxOffice,
+        companyLogo: logoUrl,
+        address: {
+          city: formData?.city,
+          district: formData?.district,
+          neighborhood: formData?.neighborhood,
+          street: formData?.street,
+          buildingNumber: formData?.buildingNumber,
+          postalCode: formData?.postalCode,
+          fullAddress: `${formData?.street} ${formData?.buildingNumber ? 'No: ' + formData?.buildingNumber : ''}, ${formData?.neighborhood}, ${formData?.district}/${formData?.city}${formData?.postalCode ? ' ' + formData?.postalCode : ''}`
+        }
+      };
 
-  const handleSubmit = () => {
-    if (validateStep(6)) {
-      console.log('Form submitted:', formData);
-      setShowSuccessModal(true);
-      setTimeout(() => {
-        navigate('/employer-dashboard');
-      }, 2000);
-    }
-  };
+      console.log('🚀 Updating employer profile:', profileData);
 
-  const getCompletedSections = () => {
-    let completed = 0;
-    if (formData?.companyName && formData?.taxNumber && formData?.sector) completed++;
-    if (formData?.city && formData?.district && formData?.searchRadius) completed++;
-    if (formData?.authorizedPersonName && formData?.authorizedPersonId) completed++;
-    if (formData?.bankName && formData?.iban && formData?.paymentTerm) completed++;
-    if (formData?.companyDescription && formData?.facilityType) completed++;
-    if (formData?.requiredSkills?.length >= 3) completed++;
-    return completed;
-  };
-
-  const renderStepContent = () => {
-    switch (currentStep) {
-      case 1:
-        return (
-          <CompanyDetailsForm
-            formData={formData}
-            errors={errors}
-            onChange={handleInputChange}
-          />
-        );
-      case 2:
-        return (
-          <LocationSettingsForm
-            formData={formData}
-            errors={errors}
-            onChange={handleInputChange}
-          />
-        );
-      case 3:
-        return (
-          <BusinessVerificationForm
-            formData={formData}
-            errors={errors}
-            onChange={handleInputChange}
-            onFileUpload={handleFileUpload}
-          />
-        );
-      case 4:
-        return (
-          <PaymentReliabilityForm
-            formData={formData}
-            errors={errors}
-            onChange={handleInputChange}
-            onCheckboxChange={handleCheckboxChange}
-          />
-        );
-      case 5:
-        return (
-          <CompanyDescriptionForm
-            formData={formData}
-            errors={errors}
-            onChange={handleInputChange}
-          />
-        );
-      case 6:
-        return (
-          <IndustrySpecializationForm
-            formData={formData}
-            errors={errors}
-            onCheckboxChange={handleCheckboxChange}
-          />
-        );
-      default:
-        return null;
+      const response = await employersAPI?.updateEmployerProfile(employerId, profileData);
+      
+      if (response?.data) {
+        // Save company name to localStorage for display
+        localStorage.setItem('companyName', formData?.companyName);
+        
+        console.log('✅ Profile updated successfully');
+        setShowSuccessModal(true);
+        
+        setTimeout(() => {
+          navigate('/employer-dashboard');
+        }, 2000);
+      }
+      
+    } catch (err) {
+      console.error('❌ Profile update error:', err);
+      setErrors({ 
+        submit: err?.response?.data?.message || 
+                err?.userMessage || 
+                'Profil güncellenirken bir hata oluştu. Lütfen tekrar deneyin.' 
+      });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -229,76 +193,260 @@ const EmployerProfileSetup = () => {
     <div className="min-h-screen bg-background">
       <AuthenticatedNavigation
         userRole="employer"
-        userName="Demir Çelik A.Ş."
+        userName={localStorage.getItem('userName') || 'İşveren'}
         notificationCount={0}
-        onLogout={() => navigate('/homepage')}
+        onLogout={() => {
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('userRole');
+          localStorage.removeItem('userId');
+          localStorage.removeItem('userName');
+          localStorage.removeItem('companyName');
+          navigate('/homepage');
+        }}
       />
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-heading font-bold text-foreground mb-2">İşveren Profili Oluştur</h1>
-          <p className="text-muted-foreground">Şirket bilgilerinizi tamamlayarak kalifiye ustalara ulaşın</p>
+          <h1 className="text-3xl font-heading font-bold text-foreground mb-2">
+            İşveren Profili Oluştur
+          </h1>
+          <p className="text-muted-foreground">
+            Temel şirket bilgilerinizi tamamlayarak kalifiye ustalara ulaşın
+          </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-6">
-            {renderStepContent()}
+        <div className="bg-card rounded-lg border border-border p-6 space-y-6">
+          {/* Company Name */}
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">
+              Şirket Ünvanı <span className="text-error">*</span>
+            </label>
+            <Input
+              name="companyName"
+              value={formData?.companyName}
+              onChange={handleInputChange}
+              placeholder="Örn: Demir Metal A.Ş."
+              error={errors?.companyName}
+            />
+            {errors?.companyName && (
+              <p className="mt-1 text-sm text-error">{errors?.companyName}</p>
+            )}
+          </div>
 
-            <div className="flex items-center justify-between bg-card rounded-lg border border-border p-6">
-              <Button
-                variant="outline"
-                onClick={handlePrevious}
-                disabled={currentStep === 1}
-                iconName="ChevronLeft"
-                iconPosition="left"
-              >
-                Önceki
-              </Button>
+          {/* Tax Number and Tax Office Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Tax Number */}
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">
+                Vergi Numarası <span className="text-error">*</span>
+              </label>
+              <Input
+                name="taxNumber"
+                value={formData?.taxNumber}
+                onChange={handleInputChange}
+                placeholder="10 haneli vergi numarası"
+                maxLength={10}
+                error={errors?.taxNumber}
+              />
+              {errors?.taxNumber && (
+                <p className="mt-1 text-sm text-error">{errors?.taxNumber}</p>
+              )}
+            </div>
 
-              <div className="flex items-center space-x-2">
-                {[1, 2, 3, 4, 5, 6]?.map((step) => (
-                  <div
-                    key={step}
-                    className={`w-2 h-2 rounded-full transition-all duration-150 ${
-                      step === currentStep
-                        ? 'bg-primary w-8'
-                        : step < currentStep
-                        ? 'bg-success' :'bg-muted'
-                    }`}
-                  />
-                ))}
-              </div>
-
-              {currentStep < 6 ? (
-                <Button
-                  variant="default"
-                  onClick={handleNext}
-                  iconName="ChevronRight"
-                  iconPosition="right"
-                >
-                  Sonraki
-                </Button>
-              ) : (
-                <Button
-                  variant="default"
-                  onClick={handleSubmit}
-                  iconName="Check"
-                  iconPosition="right"
-                >
-                  Profili Tamamla
-                </Button>
+            {/* Tax Office */}
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">
+                Vergi Dairesi <span className="text-error">*</span>
+              </label>
+              <Input
+                name="taxOffice"
+                value={formData?.taxOffice}
+                onChange={handleInputChange}
+                placeholder="Örn: Kadıköy Vergi Dairesi"
+                error={errors?.taxOffice}
+              />
+              {errors?.taxOffice && (
+                <p className="mt-1 text-sm text-error">{errors?.taxOffice}</p>
               )}
             </div>
           </div>
 
-          <div className="lg:col-span-1">
-            <ProgressIndicator
-              currentStep={currentStep}
-              totalSteps={6}
-              completedSections={getCompletedSections()}
-            />
+          {/* Company Logo */}
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">
+              Şirket Logosu
+            </label>
+            <div className="flex items-start gap-4">
+              {formData?.logoPreview && (
+                <div className="w-24 h-24 rounded-lg border-2 border-border overflow-hidden">
+                  <img 
+                    src={formData?.logoPreview} 
+                    alt="Şirket logosu önizlemesi"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
+              <div className="flex-1">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleLogoUpload}
+                  className="hidden"
+                  id="logo-upload"
+                />
+                <label
+                  htmlFor="logo-upload"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-muted text-foreground rounded-lg hover:bg-muted/80 cursor-pointer transition-colors"
+                >
+                  <Icon name="Upload" size={16} />
+                  Logo Yükle
+                </label>
+                <p className="text-xs text-muted-foreground mt-2">
+                  PNG, JPG veya JPEG formatında, maksimum 2MB
+                </p>
+                {errors?.companyLogo && (
+                  <p className="mt-1 text-sm text-error">{errors?.companyLogo}</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Address Section */}
+          <div className="border-t border-border pt-6">
+            <h3 className="text-lg font-heading font-semibold text-foreground mb-4">
+              Şirket Adresi <span className="text-error">*</span>
+            </h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* City */}
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  İl <span className="text-error">*</span>
+                </label>
+                <select
+                  name="city"
+                  value={formData?.city}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="">Şehir seçin</option>
+                  {turkishCities?.map((city) => (
+                    <option key={city} value={city}>{city}</option>
+                  ))}
+                </select>
+                {errors?.city && (
+                  <p className="mt-1 text-sm text-error">{errors?.city}</p>
+                )}
+              </div>
+
+              {/* District */}
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  İlçe <span className="text-error">*</span>
+                </label>
+                <Input
+                  name="district"
+                  value={formData?.district}
+                  onChange={handleInputChange}
+                  placeholder="Örn: Kadıköy"
+                  error={errors?.district}
+                />
+                {errors?.district && (
+                  <p className="mt-1 text-sm text-error">{errors?.district}</p>
+                )}
+              </div>
+
+              {/* Neighborhood */}
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Mahalle <span className="text-error">*</span>
+                </label>
+                <Input
+                  name="neighborhood"
+                  value={formData?.neighborhood}
+                  onChange={handleInputChange}
+                  placeholder="Örn: Caferağa Mahallesi"
+                  error={errors?.neighborhood}
+                />
+                {errors?.neighborhood && (
+                  <p className="mt-1 text-sm text-error">{errors?.neighborhood}</p>
+                )}
+              </div>
+
+              {/* Street */}
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Cadde/Sokak <span className="text-error">*</span>
+                </label>
+                <Input
+                  name="street"
+                  value={formData?.street}
+                  onChange={handleInputChange}
+                  placeholder="Örn: Moda Caddesi"
+                  error={errors?.street}
+                />
+                {errors?.street && (
+                  <p className="mt-1 text-sm text-error">{errors?.street}</p>
+                )}
+              </div>
+
+              {/* Building Number */}
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Bina No
+                </label>
+                <Input
+                  name="buildingNumber"
+                  value={formData?.buildingNumber}
+                  onChange={handleInputChange}
+                  placeholder="Örn: 45"
+                />
+              </div>
+
+              {/* Postal Code */}
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Posta Kodu
+                </label>
+                <Input
+                  name="postalCode"
+                  value={formData?.postalCode}
+                  onChange={handleInputChange}
+                  placeholder="Örn: 34710"
+                  maxLength={5}
+                />
+              </div>
+            </div>
+          </div>
+
+          {errors?.submit && (
+            <div className="bg-error/10 border border-error rounded-lg p-4">
+              <p className="text-sm text-error">{errors?.submit}</p>
+            </div>
+          )}
+
+          {/* Submit Button */}
+          <div className="flex justify-end gap-4 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => navigate('/employer-dashboard')}
+              disabled={isSubmitting}
+            >
+              İptal
+            </Button>
+            <Button
+              variant="default"
+              onClick={handleSubmit}
+              disabled={isSubmitting}
+              iconName={isSubmitting ? undefined : "Check"}
+              iconPosition="right"
+            >
+              {isSubmitting ? 'Kaydediliyor...' : 'Profili Kaydet'}
+            </Button>
           </div>
         </div>
       </main>
+
       {showSuccessModal && (
         <div className="fixed inset-0 bg-foreground/50 flex items-center justify-center z-50 p-4">
           <div className="bg-card rounded-lg border border-border p-8 max-w-md w-full animate-in fade-in zoom-in duration-200">
@@ -306,9 +454,11 @@ const EmployerProfileSetup = () => {
               <div className="w-16 h-16 bg-success/10 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Icon name="CheckCircle2" size={32} color="var(--color-success)" />
               </div>
-              <h3 className="text-xl font-heading font-bold text-foreground mb-2">Profil Oluşturuldu!</h3>
+              <h3 className="text-xl font-heading font-bold text-foreground mb-2">
+                Profil Oluşturuldu!
+              </h3>
               <p className="text-muted-foreground mb-6">
-                Profiliniz başarıyla oluşturuldu. Belgeleriniz 2-3 iş günü içinde incelenecek ve onaylanacaktır.
+                Profiliniz başarıyla kaydedildi. Şimdi iş ilanı oluşturabilirsiniz.
               </p>
               <div className="flex items-center justify-center space-x-2 text-sm text-muted-foreground">
                 <Icon name="Clock" size={16} />

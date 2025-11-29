@@ -1,8 +1,48 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
+import { jobsAPI } from '../../../utils/api';
 
 const JobPostingCard = ({ job, onEdit, onClose, onViewApplications }) => {
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
+
+  const handleDelete = async () => {
+    if (!window.confirm('Bu ilanı silmek istediğinizden emin misiniz?')) {
+      return;
+    }
+
+    try {
+      setIsDeleting(true);
+      await jobsAPI?.deleteJob(job?.id);
+      alert('İlan başarıyla silindi');
+      window.location?.reload();
+    } catch (err) {
+      console.error('Delete job error:', err);
+      alert('İlan silinemedi: ' + (err?.response?.data?.message || 'Bir hata oluştu'));
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleClose = async () => {
+    if (!window.confirm('Bu ilanı kapatmak istediğinizden emin misiniz?')) {
+      return;
+    }
+
+    try {
+      setIsClosing(true);
+      await jobsAPI?.closeJob(job?.id);
+      alert('İlan başarıyla kapatıldı');
+      window.location?.reload();
+    } catch (err) {
+      console.error('Close job error:', err);
+      alert('İlan kapatılamadı: ' + (err?.response?.data?.message || 'Bir hata oluştu'));
+    } finally {
+      setIsClosing(false);
+    }
+  };
+
   const getStatusColor = (status) => {
     switch (status) {
       case 'active':
@@ -30,7 +70,7 @@ const JobPostingCard = ({ job, onEdit, onClose, onViewApplications }) => {
   };
 
   return (
-    <div className="bg-card border border-border rounded-lg p-6 hover:shadow-card transition-all duration-150 ease-out">
+    <div className="bg-card border border-border rounded-lg p-6 hover:border-primary/50 transition-colors">
       <div className="flex items-start justify-between mb-4">
         <div className="flex-1">
           <h3 className="text-lg font-heading font-semibold text-foreground mb-2">
@@ -83,33 +123,41 @@ const JobPostingCard = ({ job, onEdit, onClose, onViewApplications }) => {
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <Button
-            variant="ghost"
+            variant="outline"
             size="sm"
-            iconName="Eye"
-            onClick={() => onViewApplications(job?.id)}
+            iconName="Edit2"
+            onClick={onEdit}
           >
-            Başvuruları Gör
+            Düzenle
           </Button>
           <Button
             variant="outline"
             size="sm"
-            iconName="Edit"
-            onClick={() => onEdit(job?.id)}
+            iconName="XCircle"
+            onClick={handleClose}
+            disabled={isClosing || job?.status === 'closed'}
           >
-            Düzenle
+            {isClosing ? 'Kapatılıyor...' : 'Kapat'}
           </Button>
-          {job?.status === 'active' && (
-            <Button
-              variant="destructive"
-              size="sm"
-              iconName="XCircle"
-              onClick={() => onClose(job?.id)}
-            >
-              Kapat
-            </Button>
-          )}
+          <Button
+            variant="outline"
+            size="sm"
+            iconName="Trash2"
+            onClick={handleDelete}
+            disabled={isDeleting}
+          >
+            {isDeleting ? 'Siliniyor...' : 'Sil'}
+          </Button>
+          <Button
+            variant="default"
+            size="sm"
+            iconName="Users"
+            onClick={onViewApplications}
+          >
+            Başvuruları Gör
+          </Button>
         </div>
       </div>
     </div>

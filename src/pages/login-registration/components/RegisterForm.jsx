@@ -139,10 +139,30 @@ const RegisterForm = () => {
       
       console.log('✅ Registration successful:', response?.data);
       
-      // Store auth token and user info
+      // CRITICAL FIX: Store ALL user data from backend response
+      const userData = response?.data?.user;
+      
       localStorage.setItem('authToken', response?.data?.token);
-      localStorage.setItem('userRole', response?.data?.user?.role);
-      localStorage.setItem('userId', response?.data?.user?.id);
+      localStorage.setItem('userRole', userData?.role);
+      localStorage.setItem('userId', userData?._id || userData?.id); // Handle both MongoDB and generic ID
+      localStorage.setItem('userName', userData?.fullName || userData?.name); // Save actual user name
+      localStorage.setItem('userEmail', userData?.email);
+      
+      // Store additional data if available
+      if (userData?.phone) {
+        localStorage.setItem('userPhone', userData?.phone);
+      }
+      
+      if (userData?.companyName) {
+        localStorage.setItem('companyName', userData?.companyName);
+      }
+
+      console.log('💾 Saved to localStorage:', {
+        userId: userData?._id || userData?.id,
+        userName: userData?.fullName || userData?.name,
+        userRole: userData?.role,
+        companyName: userData?.companyName
+      });
 
       // Navigate to profile setup
       if (formData?.role === 'worker') {

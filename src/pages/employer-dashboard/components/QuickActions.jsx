@@ -1,47 +1,69 @@
 import React from 'react';
 import Button from '../../../components/ui/Button';
 
-const QuickActions = ({ onCreateJob, onViewAllApplications, onManageProfile }) => {
+const QuickActions = ({ onAction }) => {
+  // Get user info from localStorage
+  const userName = localStorage.getItem('userName') || 'Kullanıcı';
+  const companyName = localStorage.getItem('companyName') || 'Şirket';
+
   const actions = [
     {
+      id: 'new-job',
       icon: 'Plus',
-      label: 'Yeni İlan Oluştur',
-      description: 'İş ilanı oluştur',
-      action: onCreateJob,
-      color: 'bg-primary text-primary-foreground',
-      hoverColor: 'hover:bg-primary/90'
+      label: 'Yeni İş İlanı',
+      description: 'Hemen yeni bir iş ilanı oluşturun',
+      color: 'primary',
+      onClick: () => onAction?.('new-job')
     },
     {
+      id: 'review-applications',
       icon: 'Users',
-      label: 'Başvuruları Görüntüle',
-      description: 'Tüm başvurular',
-      action: onViewAllApplications,
-      color: 'bg-accent text-accent-foreground',
-      hoverColor: 'hover:bg-accent/90'
+      label: 'Başvuruları İncele',
+      description: 'Bekleyen başvuruları değerlendirin',
+      color: 'accent',
+      onClick: () => onAction?.('review-applications')
     },
     {
-      icon: 'Settings',
-      label: 'Profil Ayarları',
-      description: 'Şirket bilgileri',
-      action: onManageProfile,
-      color: 'bg-secondary text-secondary-foreground',
-      hoverColor: 'hover:bg-secondary/80'
+      id: 'messages',
+      icon: 'MessageSquare',
+      label: 'Mesajlar',
+      description: 'Adaylarla iletişime geçin',
+      color: 'warning',
+      onClick: () => onAction?.('messages')
+    },
+    {
+      id: 'analytics',
+      icon: 'TrendingUp',
+      label: 'Performans',
+      description: 'İlan performansınızı görün',
+      color: 'success',
+      onClick: () => onAction?.('analytics')
     }
   ];
 
   return (
-    <div className="bg-card border border-border rounded-lg p-6 mb-6">
-      <h3 className="text-lg font-heading font-semibold text-foreground mb-4">Hızlı İşlemler</h3>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+    <div className="bg-card border border-border rounded-lg p-6">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h2 className="text-xl font-heading font-semibold text-foreground">
+            Hoş Geldiniz, {userName}
+          </h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            {companyName}
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {actions?.map((action, index) => (
           <Button
             key={index}
             variant="default"
             iconName={action?.icon}
             iconPosition="left"
-            onClick={action?.action}
+            onClick={action?.onClick}
             fullWidth
-            className={`${action?.color} ${action?.hoverColor}`}
+            className={`${action?.color} ${action?.color === 'primary' ? 'hover:bg-primary/90' : action?.color === 'accent' ? 'hover:bg-accent/90' : action?.color === 'warning' ? 'hover:bg-warning/90' : 'hover:bg-success/90'}`}
           >
             {action?.label}
           </Button>

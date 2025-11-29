@@ -1,9 +1,65 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Icon from '../../../components/AppIcon';
 import Image from '../../../components/AppImage';
 import Button from '../../../components/ui/Button';
+import { useNavigate } from 'react-router-dom';
+import { applicationsAPI } from '../../../utils/api';
 
-const JobCard = ({ job, onViewDetails, onApply }) => {
+const JobCard = ({ job }) => {
+  const navigate = useNavigate();
+  const [isApplying, setIsApplying] = useState(false);
+  const [hasApplied, setHasApplied] = useState(false);
+
+  useEffect(() => {
+    // Check if user has already applied to this job
+    const checkApplication = async () => {
+      try {
+        const userId = localStorage.getItem('userId');
+        if (!userId) return;
+
+        const response = await applicationsAPI?.getApplicationsByWorker(userId);
+        const applications = response?.data || [];
+        
+        const applied = applications?.some(app => app?.jobId === job?.id);
+        setHasApplied(applied);
+      } catch (err) {
+        console.error('Failed to check application status:', err);
+      }
+    };
+
+    checkApplication();
+  }, [job?.id]);
+
+  const handleApply = async () => {
+    try {
+      setIsApplying(true);
+      
+      const userId = localStorage.getItem('userId');
+      if (!userId) {
+        alert('Lütfen önce giriş yapın');
+        return;
+      }
+
+      await applicationsAPI?.applyForJob(job?.id, {
+        workerId: userId,
+        coverLetter: '',
+        proposedRate: job?.budget?.min || 0
+      });
+
+      alert('Başvurunuz başarıyla gönderildi!');
+      setHasApplied(true);
+    } catch (err) {
+      console.error('Apply error:', err);
+      alert('Başvuru gönderilemedi: ' + (err?.response?.data?.message || 'Bir hata oluştu'));
+    } finally {
+      setIsApplying(false);
+    }
+  };
+
+  const handleViewDetails = () => {
+    navigate(`/job-detail-view?id=${job?.id}&mode=worker`);
+  };
+
   const getUrgencyColor = (urgency) => {
     switch (urgency) {
       case 'urgent':
@@ -20,7 +76,7 @@ const JobCard = ({ job, onViewDetails, onApply }) => {
   };
 
   return (
-    <div className="bg-card border border-border rounded-lg p-6 hover:shadow-lg transition-all duration-150 ease-out">
+    <div className="bg-card border border-border rounded-lg p-6 hover:border-primary/50 transition-colors">
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-start space-x-4 flex-1">
           <div className="w-16 h-16 bg-muted rounded-lg overflow-hidden flex-shrink-0">
@@ -81,12 +137,23 @@ const JobCard = ({ job, onViewDetails, onApply }) => {
             <p className="text-sm font-medium text-foreground">{job?.startDate}</p>
           </div>
         </div>
-        <div className="flex items-center space-x-2">
-          <Button variant="outline" size="sm" onClick={() => onViewDetails(job)}>
-            Detaylar
+        <div className="flex items-center gap-3 mt-4">
+          <Button
+            variant="outline"
+            size="sm"
+            iconName="Eye"
+            onClick={handleViewDetails}
+          >
+            Detayları Gör
           </Button>
-          <Button variant="default" size="sm" onClick={() => onApply(job)} iconName="Send" iconPosition="right">
-            Başvur
+          <Button
+            variant="default"
+            size="sm"
+            iconName={hasApplied ? "CheckCircle" : "Send"}
+            onClick={handleApply}
+            disabled={isApplying || hasApplied}
+          >
+            {isApplying ? 'Gönderiliyor...' : (hasApplied ? 'Başvuruldu' : 'Başvur')}
           </Button>
         </div>
       </div>

@@ -102,6 +102,7 @@ export const jobsAPI = {
   updateJob: (id, data) => api?.put(`/jobs/${id}`, data),
   deleteJob: (id) => api?.delete(`/jobs/${id}`),
   closeJob: (id) => api?.patch(`/jobs/${id}/close`),
+  getJobsByEmployer: (employerId) => api?.get(`/employers/${employerId}/jobs`),
 };
 
 // Applications API calls
@@ -118,16 +119,26 @@ export const applicationsAPI = {
 // Workers API calls
 export const workersAPI = {
   getWorkerProfile: (id) => api?.get(`/workers/${id}`),
-  updateWorkerProfile: (id, data) => api?.put(`/workers/${id}`, data),
+  updateWorkerProfile: (id, data) => {
+    console.log('📡 Updating worker profile:', { id, data });
+    return api?.put(`/workers/${id}`, data);
+  },
   getWorkerPortfolio: (id) => api?.get(`/workers/${id}/portfolio`),
   uploadPortfolioItem: (id, data) => api?.post(`/workers/${id}/portfolio`, data),
+  // Add method to fetch worker data after login
+  getWorkerDashboardData: (id) => api?.get(`/workers/${id}/dashboard`),
 };
 
 // Employers API calls
 export const employersAPI = {
   getEmployerProfile: (id) => api?.get(`/employers/${id}`),
-  updateEmployerProfile: (id, data) => api?.put(`/employers/${id}`, data),
+  updateEmployerProfile: (id, data) => {
+    console.log('📡 Updating employer profile:', { id, data });
+    return api?.put(`/employers/${id}`, data);
+  },
   getDashboardStats: (id) => api?.get(`/employers/${id}/stats`),
+  // Add method to fetch employer data after login
+  getEmployerDashboardData: (id) => api?.get(`/employers/${id}/dashboard`),
 };
 
 // Reviews API calls
@@ -136,5 +147,31 @@ export const reviewsAPI = {
   getReviewsByWorker: (workerId) => api?.get(`/workers/${workerId}/reviews`),
   getReviewsByEmployer: (employerId) => api?.get(`/employers/${employerId}/reviews`),
 };
+
+// Admin endpoints
+export const adminAPI = {
+  // Get all users for admin
+  getUsers: () => api?.get('/admin/users'),
+  
+  // Get all jobs for admin
+  getJobs: () => api?.get('/admin/jobs'),
+  
+  // Get all applications for admin
+  getApplications: () => api?.get('/admin/applications'),
+  
+  // Get platform statistics
+  getStatistics: () => api?.get('/admin/statistics'),
+  
+  // User management
+  verifyUser: (userId) => api?.patch(`/admin/users/${userId}/verify`),
+  suspendUser: (userId) => api?.patch(`/admin/users/${userId}/suspend`),
+  
+  // Job management
+  flagJob: (jobId, reason) => api?.patch(`/admin/jobs/${jobId}/flag`, { reason }),
+  closeJob: (jobId) => api?.patch(`/admin/jobs/${jobId}/close`)
+};
+
+// Export admin API
+api.admin = adminAPI;
 
 export default api;

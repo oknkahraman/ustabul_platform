@@ -9,6 +9,7 @@ import EmployerProfileSetup from './pages/employer-profile-setup';
 import WorkerProfileSetup from './pages/worker-profile-setup';
 import EmployerDashboard from './pages/employer-dashboard';
 import Homepage from './pages/homepage';
+import AdminDashboard from './pages/admin-dashboard';
 
 import PortfolioManagement from "pages/portfolio-management";
 import RatingReviewSystem from "pages/rating-review-system";
@@ -28,6 +29,7 @@ const Routes = () => {
         <Route path="/employer-profile-setup" element={<EmployerProfileSetup />} />
         <Route path="/employer-dashboard" element={<EmployerDashboard />} />
         <Route path="/worker-dashboard" element={<WorkerDashboard />} />
+        <Route path="/admin-dashboard" element={<AdminDashboard />} />
         <Route path="/portfolio-management" element={<PortfolioManagement />} />
         <Route path="/rating-review-system" element={<RatingReviewSystem />} />
         <Route path="/job-creation" element={<JobCreation />} />

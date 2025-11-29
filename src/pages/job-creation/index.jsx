@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AuthenticatedNavigation from '../../components/navigation/AuthenticatedNavigation';
 
@@ -12,10 +12,16 @@ import PaymentConfigForm from './components/PaymentConfigForm';
 import AdvancedSettingsForm from './components/AdvancedSettingsForm';
 import JobPreview from './components/JobPreview';
 
+import { jobsAPI } from '../../utils/api';
+
 const JobCreation = () => {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(1);
   const [showPreview, setShowPreview] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [jobId, setJobId] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   
   const [jobData, setJobData] = useState({
     // Job Basics
@@ -68,6 +74,34 @@ const JobCreation = () => {
     { id: 6, name: 'Gelişmiş', icon: 'Settings' }
   ];
 
+  useEffect(() => {
+    // Check if we're in edit mode
+    const params = new URLSearchParams(window.location.search);
+    const id = params?.get('id');
+    const mode = params?.get('mode');
+    
+    if (id && mode === 'edit') {
+      setIsEditMode(true);
+      setJobId(id);
+      loadJobData(id);
+    }
+  }, []);
+
+  const loadJobData = async (id) => {
+    try {
+      setLoading(true);
+      const response = await jobsAPI?.getJobById(id);
+      if (response?.data) {
+        setJobData(response?.data);
+      }
+    } catch (err) {
+      console.error('Failed to load job data:', err);
+      setError('İş ilanı yüklenemedi');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleNext = () => {
     if (currentStep < steps?.length) {
       setCurrentStep(currentStep + 1);
@@ -92,16 +126,72 @@ const JobCreation = () => {
     setShowPreview(false);
   };
 
-  const handleSaveDraft = () => {
-    console.log('Save as draft:', jobData);
-    alert('İlan taslak olarak kaydedildi');
-    navigate('/employer-dashboard');
+  const handleSaveDraft = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      
+      const userId = localStorage.getItem('userId');
+      if (!userId) {
+        throw new Error('Kullanıcı oturumu bulunamadı');
+      }
+
+      const jobPayload = {
+        ...jobData,
+        employerId: userId,
+        status: 'draft'
+      };
+
+      if (isEditMode && jobId) {
+        await jobsAPI?.updateJob(jobId, jobPayload);
+        alert('İlan taslak olarak güncellendi');
+      } else {
+        await jobsAPI?.createJob(jobPayload);
+        alert('İlan taslak olarak kaydedildi');
+      }
+      
+      navigate('/employer-dashboard');
+    } catch (err) {
+      console.error('Save draft error:', err);
+      setError(err?.response?.data?.message || 'Taslak kaydedilemedi');
+      alert('Hata: ' + (err?.response?.data?.message || 'Taslak kaydedilemedi'));
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handlePublish = () => {
-    console.log('Publish job:', jobData);
-    alert('İlan başarıyla yayınlandı!');
-    navigate('/employer-dashboard');
+  const handlePublish = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      
+      const userId = localStorage.getItem('userId');
+      if (!userId) {
+        throw new Error('Kullanıcı oturumu bulunamadı');
+      }
+
+      const jobPayload = {
+        ...jobData,
+        employerId: userId,
+        status: 'active'
+      };
+
+      if (isEditMode && jobId) {
+        await jobsAPI?.updateJob(jobId, jobPayload);
+        alert('İlan başarıyla güncellendi!');
+      } else {
+        await jobsAPI?.createJob(jobPayload);
+        alert('İlan başarıyla yayınlandı!');
+      }
+      
+      navigate('/employer-dashboard');
+    } catch (err) {
+      console.error('Publish error:', err);
+      setError(err?.response?.data?.message || 'İlan yayınlanamadı');
+      alert('Hata: ' + (err?.response?.data?.message || 'İlan yayınlanamadı'));
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleLogout = () => {
@@ -157,6 +247,25 @@ const JobCreation = () => {
     }
   };
 
+  if (loading && isEditMode) {
+    return (
+      <div className="min-h-screen bg-background">
+        <AuthenticatedNavigation
+          userRole="employer"
+          userName="Demir Metal A.Ş."
+          notificationCount={3}
+          onLogout={handleLogout}
+        />
+        <div className="flex items-center justify-center h-[calc(100vh-80px)]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">İlan yükleniyor...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <AuthenticatedNavigation
@@ -177,12 +286,18 @@ const JobCreation = () => {
             Panele Dön
           </Button>
           <h1 className="text-3xl font-heading font-bold text-foreground mb-2">
-            Yeni İş İlanı Oluştur
+            {isEditMode ? 'İş İlanını Düzenle' : 'Yeni İş İlanı Oluştur'}
           </h1>
           <p className="text-muted-foreground">
-            Kalifiye işçi bulmak için detaylı iş ilanı oluşturun
+            {isEditMode ? 'İlan bilgilerini güncelleyin' : 'Kalifiye işçi bulmak için detaylı iş ilanı oluşturun'}
           </p>
         </div>
+
+        {error && (
+          <div className="mb-6 bg-error/10 border border-error/20 rounded-lg p-4">
+            <p className="text-error text-sm">{error}</p>
+          </div>
+        )}
 
         <ProgressIndicator
           steps={steps}
@@ -200,8 +315,9 @@ const JobCreation = () => {
               variant="outline"
               iconName="Save"
               onClick={handleSaveDraft}
+              disabled={loading}
             >
-              Taslak Kaydet
+              {loading ? 'Kaydediliyor...' : 'Taslak Kaydet'}
             </Button>
             <Button
               variant="ghost"
@@ -228,6 +344,7 @@ const JobCreation = () => {
                 iconName="ChevronRight"
                 iconPosition="right"
                 onClick={handleNext}
+                disabled={loading}
               >
                 Sonraki
               </Button>
@@ -237,8 +354,9 @@ const JobCreation = () => {
                 iconName="CheckCircle"
                 iconPosition="left"
                 onClick={handlePublish}
+                disabled={loading}
               >
-                İlanı Yayınla
+                {loading ? 'Yayınlanıyor...' : (isEditMode ? 'Güncelle' : 'İlanı Yayınla')}
               </Button>
             )}
           </div>

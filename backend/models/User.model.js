@@ -20,50 +20,25 @@ const userSchema = new mongoose.Schema({
     required: [true, 'Ad Soyad gereklidir'],
     trim: true
   },
-  phone: {
+  role: {
     type: String,
-    required: [true, 'Telefon numarası gereklidir'],
-    trim: true
-  },
-  userType: {
-    type: String,
-    enum: ['worker', 'employer', 'admin'],
-    required: [true, 'Kullanıcı tipi gereklidir']
-  },
-  profileCompleted: {
-    type: Boolean,
-    default: false
-  },
-  isActive: {
-    type: Boolean,
-    default: true
+    enum: ['worker', 'employer'],
+    required: [true, 'Rol gereklidir']
   },
   isVerified: {
     type: Boolean,
     default: false
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now
-  },
-  lastLogin: {
-    type: Date
   }
 }, {
   timestamps: true
 });
 
-// Hash password before saving
-userSchema?.pre('save', async function(next) {
-  if (!this.isModified('password')) return next();
+// 🚨 CRITICAL FIX: Mongoose v8+ - Remove next() callback, use async/await only
+userSchema?.pre('save', async function() {
+  if (!this.isModified('password')) return;
   
-  try {
-    const salt = await bcrypt?.genSalt(10);
-    this.password = await bcrypt?.hash(this.password, salt);
-    next();
-  } catch (error) {
-    next(error);
-  }
+  const salt = await bcrypt?.genSalt(10);
+  this.password = await bcrypt?.hash(this.password, salt);
 });
 
 // Compare password method

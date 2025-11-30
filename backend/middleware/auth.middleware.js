@@ -1,12 +1,10 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User.model');
 
-// Verify JWT token
-const protect = async (req, res, next) => {
+exports.protect = async (req, res, next) => {
   try {
     let token;
 
-    // Check if token exists in header
     if (req?.headers?.authorization && req?.headers?.authorization?.startsWith('Bearer')) {
       token = req?.headers?.authorization?.split(' ')?.[1];
     }
@@ -14,7 +12,7 @@ const protect = async (req, res, next) => {
     if (!token) {
       return res?.status(401)?.json({
         success: false,
-        message: 'Erişim yetkiniz yok, lütfen giriş yapın'
+        message: 'Erişim için giriş yapmalısınız'
       });
     }
 
@@ -22,7 +20,7 @@ const protect = async (req, res, next) => {
     const decoded = jwt?.verify(token, process.env.JWT_SECRET);
 
     // Get user from token
-    req.user = await User?.findById(decoded?.id)?.select('-password');
+    req.user = await User?.findById(decoded?.id);
 
     if (!req?.user) {
       return res?.status(401)?.json({
@@ -31,27 +29,20 @@ const protect = async (req, res, next) => {
       });
     }
 
-    if (!req?.user?.isActive) {
-      return res?.status(401)?.json({
-        success: false,
-        message: 'Hesabınız deaktif durumda'
-      });
-    }
-
     next();
   } catch (error) {
-    console.error('Auth middleware error:', error);
-    return res?.status(401)?.json({
+    res?.status(401)?.json({
       success: false,
-      message: 'Geçersiz token'
+      message: 'Geçersiz token',
+      error: error?.message
     });
   }
 };
 
-// Check user type
-const authorize = (...roles) => {
+// Role-based middleware
+exports.authorize = (...roles) => {
   return (req, res, next) => {
-    if (!roles?.includes(req?.user?.userType)) {
+    if (!roles?.includes(req?.user?.role)) {
       return res?.status(403)?.json({
         success: false,
         message: 'Bu işlem için yetkiniz yok'
@@ -60,5 +51,3 @@ const authorize = (...roles) => {
     next();
   };
 };
-
-module.exports = { protect, authorize };

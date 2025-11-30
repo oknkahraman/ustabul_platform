@@ -1,16 +1,12 @@
 const express = require('express');
 const router = express?.Router();
-const reviewController = require('../controllers/review.controller');
-const { protect } = require('../middleware/auth.middleware');
 
-// All routes require authentication
-router?.use(protect);
-
-// Review CRUD
-router?.post('/', reviewController?.createReview);
-router?.get('/user/:userId', reviewController?.getUserReviews);
-router?.get('/job/:jobId', reviewController?.getJobReviews);
-router?.put('/:reviewId/response', reviewController?.addResponse);
-router?.post('/:reviewId/report', reviewController?.reportReview);
+// Placeholder for future review functionality
+router?.get('/', (req, res) => {
+  res?.json({
+    success: true,
+    message: 'Review routes - Coming soon'
+  });
+});
 
 module.exports = router;

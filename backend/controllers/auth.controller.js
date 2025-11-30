@@ -1,36 +1,27 @@
-const jwt = require('jsonwebtoken');
-const { validationResult } = require('express-validator');
 const User = require('../models/User.model');
+const EmployerProfile = require('../models/EmployerProfile.model');
+const WorkerProfile = require('../models/WorkerProfile.model');
+const jwt = require('jsonwebtoken');
 
-// Generate JWT token
-const generateToken = (id) => {
-  return jwt?.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRE
+// Generate JWT Token
+const generateToken = (userId) => {
+  return jwt?.sign({ id: userId }, process.env.JWT_SECRET, {
+    expiresIn: '30d'
   });
 };
 
-// @desc    Register user
+// @desc    Register new user
 // @route   POST /api/auth/register
-// @access  Public
 exports.register = async (req, res) => {
   try {
-    const errors = validationResult(req);
-    if (!errors?.isEmpty()) {
+    const { email, password, fullName, role } = req?.body;
+
+    // Check if user exists
+    const userExists = await User?.findOne({ email });
+    if (userExists) {
       return res?.status(400)?.json({
         success: false,
-        message: 'Geçersiz veri',
-        errors: errors?.array()
-      });
-    }
-
-    const { email, password, fullName, phone, userType } = req?.body;
-
-    // Check if user already exists
-    const existingUser = await User?.findOne({ email });
-    if (existingUser) {
-      return res?.status(400)?.json({
-        success: false,
-        message: 'Bu email adresi zaten kayıtlı'
+        message: 'Bu email adresi zaten kullanılıyor'
       });
     }
 
@@ -39,9 +30,15 @@ exports.register = async (req, res) => {
       email,
       password,
       fullName,
-      phone,
-      userType
+      role
     });
+
+    // Create corresponding profile
+    if (role === 'employer') {
+      await EmployerProfile?.create({ userId: user?._id });
+    } else if (role === 'worker') {
+      await WorkerProfile?.create({ userId: user?._id });
+    }
 
     // Generate token
     const token = generateToken(user?._id);
@@ -54,36 +51,24 @@ exports.register = async (req, res) => {
           id: user?._id,
           email: user?.email,
           fullName: user?.fullName,
-          phone: user?.phone,
-          userType: user?.userType,
-          profileCompleted: user?.profileCompleted
+          role: user?.role
         },
         token
       }
     });
   } catch (error) {
-    console.error('Register error:', error);
     res?.status(500)?.json({
       success: false,
-      message: 'Kayıt sırasında bir hata oluştu'
+      message: 'Kayıt sırasında hata oluştu',
+      error: error?.message
     });
   }
 };
 
 // @desc    Login user
 // @route   POST /api/auth/login
-// @access  Public
 exports.login = async (req, res) => {
   try {
-    const errors = validationResult(req);
-    if (!errors?.isEmpty()) {
-      return res?.status(400)?.json({
-        success: false,
-        message: 'Geçersiz veri',
-        errors: errors?.array()
-      });
-    }
-
     const { email, password } = req?.body;
 
     // Check if user exists
@@ -104,18 +89,6 @@ exports.login = async (req, res) => {
       });
     }
 
-    // Check if user is active
-    if (!user?.isActive) {
-      return res?.status(401)?.json({
-        success: false,
-        message: 'Hesabınız deaktif durumda'
-      });
-    }
-
-    // Update last login
-    user.lastLogin = new Date();
-    await user?.save();
-
     // Generate token
     const token = generateToken(user?._id);
 
@@ -127,29 +100,33 @@ exports.login = async (req, res) => {
           id: user?._id,
           email: user?.email,
           fullName: user?.fullName,
-          phone: user?.phone,
-          userType: user?.userType,
-          profileCompleted: user?.profileCompleted
+          role: user?.role
         },
         token
       }
     });
   } catch (error) {
-    console.error('Login error:', error);
     res?.status(500)?.json({
       success: false,
-      message: 'Giriş sırasında bir hata oluştu'
+      message: 'Giriş sırasında hata oluştu',
+      error: error?.message
     });
   }
 };
 
 // @desc    Get current user
 // @route   GET /api/auth/me
-// @access  Private
 exports.getMe = async (req, res) => {
   try {
     const user = await User?.findById(req?.user?.id);
 
+    let profile = null;
+    if (user?.role === 'employer') {
+      profile = await EmployerProfile?.findOne({ userId: user?._id });
+    } else if (user?.role === 'worker') {
+      profile = await WorkerProfile?.findOne({ userId: user?._id });
+    }
+
     res?.json({
       success: true,
       data: {
@@ -157,104 +134,17 @@ exports.getMe = async (req, res) => {
           id: user?._id,
           email: user?.email,
           fullName: user?.fullName,
-          phone: user?.phone,
-          userType: user?.userType,
-          profileCompleted: user?.profileCompleted,
-          isVerified: user?.isVerified,
-          createdAt: user?.createdAt
-        }
+          role: user?.role,
+          isVerified: user?.isVerified
+        },
+        profile
       }
     });
   } catch (error) {
-    console.error('Get me error:', error);
     res?.status(500)?.json({
       success: false,
-      message: 'Kullanıcı bilgileri alınırken bir hata oluştu'
-    });
-  }
-};
-
-// @desc    Update user profile
-// @route   PUT /api/auth/update-profile
-// @access  Private
-exports.updateProfile = async (req, res) => {
-  try {
-    const { fullName, phone } = req?.body;
-
-    const user = await User?.findById(req?.user?.id);
-
-    if (fullName) user.fullName = fullName;
-    if (phone) user.phone = phone;
-
-    await user?.save();
-
-    res?.json({
-      success: true,
-      message: 'Profil güncellendi',
-      data: {
-        user: {
-          id: user?._id,
-          email: user?.email,
-          fullName: user?.fullName,
-          phone: user?.phone,
-          userType: user?.userType
-        }
-      }
-    });
-  } catch (error) {
-    console.error('Update profile error:', error);
-    res?.status(500)?.json({
-      success: false,
-      message: 'Profil güncellenirken bir hata oluştu'
-    });
-  }
-};
-
-// @desc    Change password
-// @route   POST /api/auth/change-password
-// @access  Private
-exports.changePassword = async (req, res) => {
-  try {
-    const { currentPassword, newPassword } = req?.body;
-
-    if (!currentPassword || !newPassword) {
-      return res?.status(400)?.json({
-        success: false,
-        message: 'Mevcut şifre ve yeni şifre gereklidir'
-      });
-    }
-
-    if (newPassword?.length < 6) {
-      return res?.status(400)?.json({
-        success: false,
-        message: 'Yeni şifre en az 6 karakter olmalıdır'
-      });
-    }
-
-    const user = await User?.findById(req?.user?.id);
-
-    // Check current password
-    const isPasswordMatch = await user?.comparePassword(currentPassword);
-    if (!isPasswordMatch) {
-      return res?.status(401)?.json({
-        success: false,
-        message: 'Mevcut şifre yanlış'
-      });
-    }
-
-    // Update password
-    user.password = newPassword;
-    await user?.save();
-
-    res?.json({
-      success: true,
-      message: 'Şifre başarıyla değiştirildi'
-    });
-  } catch (error) {
-    console.error('Change password error:', error);
-    res?.status(500)?.json({
-      success: false,
-      message: 'Şifre değiştirilirken bir hata oluştu'
+      message: 'Kullanıcı bilgileri alınırken hata oluştu',
+      error: error?.message
     });
   }
 };

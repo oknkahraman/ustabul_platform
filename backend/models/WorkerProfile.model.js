@@ -7,53 +7,56 @@ const workerProfileSchema = new mongoose.Schema({
     required: true,
     unique: true
   },
-  profileImage: {
-    type: String,
-    default: null
-  },
-  bio: {
-    type: String,
-    maxlength: 500
-  },
   skills: [{
-    category: String,
-    skills: [String]
+    type: String,
+    required: true
   }],
   experience: {
     type: String,
     enum: ['0-1', '1-3', '3-5', '5-10', '10+'],
     default: '0-1'
   },
-  hourlyRate: {
-    type: Number,
-    min: 0
-  },
-  availability: {
-    type: String,
-    enum: ['Tam Zamanlı', 'Yarı Zamanlı', 'Proje Bazlı', 'Uygun Değil'],
-    default: 'Uygun Değil'
-  },
   location: {
-    city: String,
-    district: String,
-    coordinates: {
-      lat: Number,
-      lng: Number
+    city: {
+      type: String,
+      required: [true, 'Şehir gereklidir']
+    },
+    district: {
+      type: String,
+      required: [true, 'İlçe gereklidir']
+    },
+    neighborhood: String
+  },
+  preferences: {
+    isAnonymous: {
+      type: Boolean,
+      default: false
+    },
+    notificationSettings: {
+      emailNotifications: {
+        type: Boolean,
+        default: true
+      },
+      smsNotifications: {
+        type: Boolean,
+        default: false
+      },
+      newJobAlerts: {
+        type: Boolean,
+        default: true
+      }
     }
   },
-  portfolio: [{
-    title: String,
-    description: String,
-    images: [String],
-    completionDate: Date,
-    category: String
-  }],
-  certificates: [{
-    name: String,
-    issuer: String,
-    issueDate: Date,
-    fileUrl: String
-  }],
+  hourlyRate: Number,
+  availability: {
+    type: String,
+    enum: ['available', 'busy', 'not_available'],
+    default: 'available'
+  },
+  completedJobs: {
+    type: Number,
+    default: 0
+  },
   rating: {
     average: {
       type: Number,
@@ -65,33 +68,13 @@ const workerProfileSchema = new mongoose.Schema({
       type: Number,
       default: 0
     }
-  },
-  completedJobs: {
-    type: Number,
-    default: 0
-  },
-  isAvailable: {
-    type: Boolean,
-    default: true
-  },
-  preferences: {
-    workRadius: {
-      type: Number,
-      default: 50
-    },
-    minimumBudget: {
-      type: Number,
-      default: 0
-    },
-    preferredJobTypes: [String]
   }
 }, {
   timestamps: true
 });
 
-// Index for location-based searches
-workerProfileSchema?.index({ 'location.coordinates': '2dsphere' });
 workerProfileSchema?.index({ userId: 1 });
-workerProfileSchema?.index({ 'rating.average': -1 });
+workerProfileSchema?.index({ 'location.city': 1, 'location.district': 1 });
+workerProfileSchema?.index({ skills: 1 });
 
 module.exports = mongoose?.model('WorkerProfile', workerProfileSchema);

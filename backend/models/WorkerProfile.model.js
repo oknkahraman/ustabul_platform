@@ -8,8 +8,15 @@ const workerProfileSchema = new mongoose.Schema({
     unique: true
   },
   skills: [{
-    type: String,
-    required: true
+    category: {
+      type: String,
+      required: true,
+      // Main categories: Kaynak, Elektrik, Tesisat, Boya, İnşaat, vb.
+    },
+    subcategories: [{
+      type: String,
+      // For Kaynak: TIG, MIG/MAG, Elektrik Kaynağı, Oksijen Kaynağı, vb.
+    }]
   }],
   experience: {
     type: String,
@@ -75,6 +82,7 @@ const workerProfileSchema = new mongoose.Schema({
 
 workerProfileSchema?.index({ userId: 1 });
 workerProfileSchema?.index({ 'location.city': 1, 'location.district': 1 });
-workerProfileSchema?.index({ skills: 1 });
+workerProfileSchema?.index({ 'skills.category': 1 });
+workerProfileSchema?.index({ 'skills.subcategories': 1 });
 
 module.exports = mongoose?.model('WorkerProfile', workerProfileSchema);

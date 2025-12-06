@@ -37,14 +37,21 @@ const jobSchema = new mongoose.Schema({
       required: [true, 'Maximum ücret gereklidir']
     }
   },
-  skills: [{
-    type: String,
-    required: true
+  requiredSkills: [{
+    category: {
+      type: String,
+      required: true,
+      // Main categories: Kaynak, Elektrik, Tesisat, Boya, İnşaat, vb.
+    },
+    subcategories: [{
+      type: String,
+      // For Kaynak: TIG, MIG/MAG, Elektrik Kaynağı, Oksijen Kaynağı, vb.
+    }]
   }],
   status: {
     type: String,
-    enum: ['active', 'closed'],
-    default: 'active'
+    enum: ['draft', 'active', 'closed'],
+    default: 'draft'
   },
   applicationCount: {
     type: Number,
@@ -61,6 +68,8 @@ const jobSchema = new mongoose.Schema({
 jobSchema?.index({ employerId: 1 });
 jobSchema?.index({ status: 1 });
 jobSchema?.index({ 'location.city': 1, 'location.district': 1 });
+jobSchema?.index({ 'requiredSkills.category': 1 });
+jobSchema?.index({ 'requiredSkills.subcategories': 1 });
 jobSchema?.index({ createdAt: -1 });
 
 module.exports = mongoose?.model('Job', jobSchema);

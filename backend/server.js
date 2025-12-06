@@ -2,6 +2,8 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const connectDB = require('./config/db');
+const initializeDatabase = require('./utils/initializeDatabase');
 
 // Load environment variables
 dotenv?.config();
@@ -29,6 +31,19 @@ if (process.env.NODE_ENV === 'development') {
     next();
   });
 }
+
+// Connect to MongoDB and initialize database
+connectDB()?.then(async () => {
+  console.log('MongoDB bağlantısı kuruldu\n');
+  
+  // Initialize database on first run
+  try {
+    await initializeDatabase();
+    console.log('✅ Veritabanı başlatma tamamlandı\n');
+  } catch (error) {
+    console.error('⚠️  Veritabanı başlatma uyarısı:', error?.message);
+  }
+});
 
 // MongoDB Connection
 mongoose?.connect(process.env.MONGODB_URI)?.then(() => console.log('✅ MongoDB connected successfully'))?.catch((err) => {

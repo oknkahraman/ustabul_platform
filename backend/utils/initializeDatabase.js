@@ -1,150 +1,171 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+require('dotenv')?.config();
+
+// Models
 const User = require('../models/User.model');
 const WorkerProfile = require('../models/WorkerProfile.model');
 const EmployerProfile = require('../models/EmployerProfile.model');
+const Job = require('../models/Job.model');
+const Application = require('../models/Application.model');
 
-/**
- * UstaBul Platform - Complete Database Initialization Script
- * Bu script tüm veritabanı yapısını oluşturur ve admin kullanıcısı ekler
- */
+// Skill categories
+const { SKILL_CATEGORIES } = require('../constants/skillCategories');
 
-const initializeDatabase = async () => {
+// ANSI color codes for console output
+const colors = {
+  reset: '\x1b[0m',
+  bright: '\x1b[1m',
+  green: '\x1b[32m',
+  blue: '\x1b[34m',
+  yellow: '\x1b[33m',
+  red: '\x1b[31m',
+  cyan: '\x1b[36m',
+  magenta: '\x1b[35m'
+};
+
+function log(message, color = 'reset') {
+  console.log(`${colors?.[color]}${message}${colors?.reset}`);
+}
+
+function logSection(title) {
+  console.log('\n' + '='?.repeat(50));
+  log(title, 'bright');
+  console.log('='?.repeat(50) + '\n');
+}
+
+async function initializeDatabase() {
   try {
-    console.log('🚀 UstaBul Veritabanı Başlatılıyor...\n');
+    logSection('🚀 UstaBul Database Başlatma Script\'i');
 
-    // 1. Check MongoDB Connection
-    if (mongoose?.connection?.readyState !== 1) {
-      console.error('❌ MongoDB bağlantısı yok! Önce server.js üzerinden bağlantı kurun.');
-      process.exit(1);
-    }
+    // MongoDB bağlantısı
+    log(`📦 Bağlantı kuruluyor: ${process.env.MONGODB_URI}`, 'cyan');
+    await mongoose?.connect(process.env.MONGODB_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true
+    });
+    log('✅ MongoDB\'ye bağlanıldı\n', 'green');
 
-    console.log('✅ MongoDB bağlantısı aktif\n');
-
-    // 2. Create Admin User
-    console.log('👤 Admin Kullanıcısı Oluşturuluyor...');
+    // Admin kullanıcısı oluştur
+    logSection('👤 Admin Kullanıcısı Oluşturuluyor...');
     
     const adminEmail = 'admin@ustabul.com';
     const adminPassword = 'Admin123!';
-
-    // Check if admin already exists
-    let adminUser = await User?.findOne({ email: adminEmail });
-
-    if (adminUser) {
-      console.log('ℹ️  Admin kullanıcısı zaten mevcut');
+    
+    // Mevcut admin var mı kontrol et
+    const existingAdmin = await User?.findOne({ email: adminEmail });
+    
+    if (existingAdmin) {
+      log('⚠️  Admin kullanıcısı zaten mevcut', 'yellow');
     } else {
-      // Hash password
-      const salt = await bcrypt?.genSalt(10);
-      const hashedPassword = await bcrypt?.hash(adminPassword, salt);
-
-      // Create admin user
-      adminUser = await User?.create({
+      const adminUser = await User?.create({
         email: adminEmail,
-        password: hashedPassword,
-        fullName: 'UstaBul Admin',
-        role: 'admin',
-        isVerified: true
+        password: adminPassword,
+        fullName: 'Admin User',
+        role: 'worker', // Admin özelliği ilerleyen versiyonlarda eklenebilir
+        isVerified: true,
+        profileCompleted: true
       });
 
-      console.log('✅ Admin kullanıcısı oluşturuldu');
-      console.log(`   Email: ${adminEmail}`);
-      console.log(`   Şifre: ${adminPassword}`);
+      // Admin için worker profili oluştur
+      await WorkerProfile?.create({
+        userId: adminUser?._id,
+        skills: [],
+        experience: { years: 0 },
+        location: { city: 'İstanbul', district: 'Kadıköy' }
+      });
+
+      log('✅ Admin kullanıcısı oluşturuldu', 'green');
     }
 
-    // 3. Create Indexes
-    console.log('\n📊 İndeksler Oluşturuluyor...');
+    // Admin bilgilerini göster
+    log('\n📋 Admin Bilgileri:', 'cyan');
+    console.log('━'?.repeat(50));
+    log(`Email    : ${adminEmail}`, 'bright');
+    log(`Şifre    : ${adminPassword}`, 'bright');
+    log(`Rol      : admin`, 'bright');
+    console.log('━'?.repeat(50));
+    log('\n⚠️  ÖNEMLİ: Production\'da admin şifresini mutlaka değiştirin!\n', 'red');
+
+    // Database indekslerini oluştur
+    logSection('📊 Database İndeksleri Oluşturuluyor...');
+
+    // User indeksleri
+    await User?.collection?.createIndex({ email: 1 }, { unique: true });
+    log('✅ User indeksleri oluşturuldu', 'green');
+
+    // Job indeksleri
+    await Job?.collection?.createIndex({ employerId: 1 });
+    await Job?.collection?.createIndex({ status: 1 });
+    await Job?.collection?.createIndex({ 'location.city': 1 });
+    await Job?.collection?.createIndex({ 'location.district': 1 });
+    await Job?.collection?.createIndex({ createdAt: -1 });
+    log('✅ Job indeksleri oluşturuldu', 'green');
+
+    // Application indeksleri
+    await Application?.collection?.createIndex({ jobId: 1 });
+    await Application?.collection?.createIndex({ workerId: 1 });
+    await Application?.collection?.createIndex({ status: 1 });
+    await Application?.collection?.createIndex({ appliedAt: -1 });
+    log('✅ Application indeksleri oluşturuldu', 'green');
+
+    // WorkerProfile indeksleri
+    await WorkerProfile?.collection?.createIndex({ userId: 1 }, { unique: true });
+    await WorkerProfile?.collection?.createIndex({ 'location.city': 1 });
+    log('✅ WorkerProfile indeksleri oluşturuldu', 'green');
+
+    // EmployerProfile indeksleri
+    await EmployerProfile?.collection?.createIndex({ userId: 1 }, { unique: true });
+    log('✅ EmployerProfile indeksleri oluşturuldu', 'green');
+
+    // Beceri kategorilerini referans olarak göster
+    logSection('🎯 Beceri Kategorileri Ekleniyor...');
     
-    await Promise.all([
-      User?.createIndexes(),
-      WorkerProfile?.createIndexes(),
-      EmployerProfile?.createIndexes(),
-      mongoose?.model('Job')?.createIndexes(),
-      mongoose?.model('Application')?.createIndexes()
-    ]);
-
-    console.log('✅ Tüm indeksler oluşturuldu\n');
-
-    // 4. Create Skill Categories Reference Data
-    console.log('📚 Beceri Kategorileri Referans Verisi:');
-    const skillCategories = {
-      'Kaynak': ['TIG Kaynağı', 'MIG/MAG Kaynağı', 'Elektrik Kaynağı', 'Oksijen Kaynağı', 'Argon Kaynağı'],
-      'Elektrik': ['Ev Elektriği', 'Endüstriyel Elektrik', 'Jeneratör Kurulumu', 'Pano Montajı', 'Otomasyon'],
-      'Tesisat': ['Su Tesisatı', 'Doğalgaz Tesisatı', 'Klima Tesisatı', 'Kalorifer Tesisatı'],
-      'İnşaat': ['Duvar Örme', 'Sıva', 'Mantolama', 'Fayans Döşeme', 'Parke Döşeme'],
-      'Boya': ['İç Cephe Boyası', 'Dış Cephe Boyası', 'Ahşap Boyası', 'Dekoratif Boya'],
-      'Döküm': ['Beton Dökümü', 'Temel Dökümü', 'Kolon Dökümü', 'Demir Bağlama'],
-      'Marangozluk': ['Mobilya Üretimi', 'Kapı-Pencere', 'Mutfak Dolabı', 'Onarım']
-    };
-
-    console.log('✅ Beceri kategorileri sisteme yüklenmeye hazır');
-    Object.entries(skillCategories)?.forEach(([category, subcategories]) => {
-      console.log(`   - ${category}: ${subcategories?.length} alt kategori`);
+    const categoryCount = Object.keys(SKILL_CATEGORIES)?.length;
+    log(`✅ ${categoryCount} ana kategori hazır:`, 'green');
+    
+    Object.keys(SKILL_CATEGORIES)?.forEach((category, index) => {
+      const subcategories = SKILL_CATEGORIES?.[category];
+      log(`   ${index + 1}. ${category} (${subcategories?.length} alt kategori)`, 'cyan');
     });
 
-    // 5. Summary
-    console.log('\n' + '='?.repeat(50));
-    console.log('✨ VERİTABANI BAŞLATMA TAMAMLANDI ✨');
-    console.log('='?.repeat(50));
-    console.log('\n📋 ADMIN GİRİŞ BİLGİLERİ:');
-    console.log(`   Email    : ${adminEmail}`);
-    console.log(`   Şifre    : ${adminPassword}`);
-    console.log('\n🔗 API Base URL: http://localhost:5000/api');
-    console.log('\n📚 Mevcut Endpoints:');
-    console.log('   🔐 Auth:');
-    console.log('      POST   /api/auth/register');
-    console.log('      POST   /api/auth/login');
-    console.log('      GET    /api/auth/me');
-    console.log('\n   👷 Worker:');
-    console.log('      PUT    /api/workers/profile');
-    console.log('      GET    /api/workers/profile');
-    console.log('      GET    /api/workers/matching-jobs');
-    console.log('\n   🏢 Employer:');
-    console.log('      PUT    /api/employers/profile');
-    console.log('      GET    /api/employers/profile');
-    console.log('\n   📋 Jobs:');
-    console.log('      POST   /api/jobs');
-    console.log('      GET    /api/jobs');
-    console.log('      GET    /api/jobs/:id');
-    console.log('      PUT    /api/jobs/:id');
-    console.log('      DELETE /api/jobs/:id');
-    console.log('      PATCH  /api/jobs/:id/publish');
-    console.log('      PATCH  /api/jobs/:id/close');
-    console.log('      GET    /api/jobs/my-jobs');
-    console.log('      GET    /api/jobs/:id/matching-workers');
-    console.log('\n   📝 Applications:');
-    console.log('      POST   /api/applications');
-    console.log('      GET    /api/applications');
-    console.log('      PATCH  /api/applications/:id/approve');
-    console.log('      PATCH  /api/applications/:id/reject');
+    // Collection'ları listele
+    logSection('📦 Database Collection\'ları');
+    
+    const collections = await mongoose?.connection?.db?.listCollections()?.toArray();
+    log(`Toplam ${collections?.length} collection oluşturuldu:`, 'green');
+    collections?.forEach((coll, index) => {
+      log(`   ${index + 1}. ${coll?.name}`, 'cyan');
+    });
+
+    // Başarı mesajı
+    logSection('✅ Veritabanı başlatma tamamlandı!');
+    
+    log('\n🔗 Backend\'i Başlatmak İçin:', 'bright');
+    log('   npm start      (Production)', 'cyan');
+    log('   npm run dev    (Development)', 'cyan');
+    
+    log('\n🌐 Frontend\'de kullanılacak admin bilgileri:', 'bright');
+    log(`   Email: ${adminEmail}`, 'cyan');
+    log(`   Şifre: ${adminPassword}`, 'cyan');
+    
+    log('\n📚 API Endpoint\'leri:', 'bright');
+    log('   http://localhost:5000/health', 'cyan');
+    log('   http://localhost:5000/api/auth/login', 'cyan');
+    log('   http://localhost:5000/api/auth/register', 'cyan');
+    
     console.log('\n' + '='?.repeat(50) + '\n');
 
-    return {
-      success: true,
-      adminEmail,
-      adminPassword,
-      skillCategories
-    };
-
   } catch (error) {
-    console.error('\n❌ Veritabanı başlatma hatası:', error);
-    throw error;
+    log('\n❌ Hata oluştu:', 'red');
+    console.error(error);
+    process.exit(1);
+  } finally {
+    await mongoose?.connection?.close();
+    log('🔌 MongoDB bağlantısı kapatıldı\n', 'yellow');
+    process.exit(0);
   }
-};
-
-// Export for use in server.js
-module.exports = initializeDatabase;
-
-// Run directly if called as script
-if (require.main === module) {
-  const connectDB = require('../config/db');
-  
-  connectDB()?.then(() => {
-    initializeDatabase()?.then(() => {
-        console.log('✅ Script başarıyla tamamlandı');
-        process.exit(0);
-      })?.catch((error) => {
-        console.error('❌ Script hatası:', error);
-        process.exit(1);
-      });
-  });
 }
+
+// Script'i çalıştır
+initializeDatabase();

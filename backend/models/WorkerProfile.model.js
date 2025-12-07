@@ -8,14 +8,26 @@ const workerProfileSchema = new mongoose.Schema({
     unique: true
   },
   skills: [{
-    category: {
+    mainCategory: {
       type: String,
       required: true,
-      // Main categories: Kaynak, Elektrik, Tesisat, Boya, İnşaat, vb.
+      enum: ['METAL İŞLERİ', 'ELEKTRİK', 'TESİSAT']
     },
-    subcategories: [{
+    subCategory: {
       type: String,
-      // For Kaynak: TIG, MIG/MAG, Elektrik Kaynağı, Oksijen Kaynağı, vb.
+      required: true
+      // Examples: 'KAYNAK', 'ABKANT BÜKÜM', 'PANO MONTAJI', etc.
+    },
+    details: [{
+      type: {
+        type: String
+        // Examples: 'MİG-MAG', 'CNC TORNA', 'PLC', etc.
+      },
+      options: [{
+        type: String
+        // Examples: ['Alüminyum', 'Çelik'], ['2 Eksen', '3 Eksen'], etc.
+      }],
+      other: String // For "Diğer" manual input
     }]
   }],
   experience: {
@@ -82,7 +94,8 @@ const workerProfileSchema = new mongoose.Schema({
 
 workerProfileSchema?.index({ userId: 1 });
 workerProfileSchema?.index({ 'location.city': 1, 'location.district': 1 });
-workerProfileSchema?.index({ 'skills.category': 1 });
-workerProfileSchema?.index({ 'skills.subcategories': 1 });
+workerProfileSchema?.index({ 'skills.mainCategory': 1 });
+workerProfileSchema?.index({ 'skills.subCategory': 1 });
+workerProfileSchema?.index({ 'skills.details.type': 1 });
 
 module.exports = mongoose?.model('WorkerProfile', workerProfileSchema);

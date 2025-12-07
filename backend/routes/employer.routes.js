@@ -1,9 +1,14 @@
 const express = require('express');
 const router = express?.Router();
-const { updateProfile, getProfile } = require('../controllers/employer.controller');
-const { protect, authorize } = require('../middleware/auth.middleware');
+const employerController = require('../controllers/employer.controller');
+const { authenticate, authorizeEmployer } = require('../middleware/auth.middleware');
 
-router?.put('/profile', protect, authorize('employer'), updateProfile);
-router?.get('/profile', protect, authorize('employer'), getProfile);
+// Employer profile routes
+router?.put('/profile', authenticate, authorizeEmployer, employerController?.updateProfile);
+router?.get('/profile', authenticate, authorizeEmployer, employerController?.getProfile);
+router?.get('/profile/me', authenticate, authorizeEmployer, employerController?.getCurrentProfile);
+
+// Dashboard
+router?.get('/dashboard', authenticate, authorizeEmployer, employerController?.getDashboard);
 
 module.exports = router;

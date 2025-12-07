@@ -15,6 +15,16 @@ const jobSchema = new mongoose.Schema({
     type: String,
     required: [true, 'İş açıklaması gereklidir']
   },
+  category: {
+    type: String,
+    required: [true, 'İş kategorisi gereklidir'],
+    enum: [
+      'KAYNAK', 'ABKANT BÜKÜM', 'TESVİYE', 'İMALAT', 'TALAŞLI İMALAT',
+      'LAZER KESİM', 'PLAZMA KESİM', 'ŞERİT TESTERE', 
+      'PANO MONTAJI', 'KABLAJ', 'OTOMASYONCU', 'BAKIM ONARIM',
+      'HİDROLİK', 'PNOMATİK'
+    ]
+  },
   location: {
     city: {
       type: String,
@@ -25,6 +35,8 @@ const jobSchema = new mongoose.Schema({
       required: [true, 'İlçe gereklidir']
     },
     neighborhood: String,
+    street: String,
+    buildingNo: String,
     fullAddress: String
   },
   salary: {
@@ -38,19 +50,23 @@ const jobSchema = new mongoose.Schema({
     }
   },
   requiredSkills: [{
-    category: {
+    subCategory: {
       type: String,
-      required: true,
-      // Main categories: Kaynak, Elektrik, Tesisat, Boya, İnşaat, vb.
+      required: true
     },
-    subcategories: [{
-      type: String,
-      // For Kaynak: TIG, MIG/MAG, Elektrik Kaynağı, Oksijen Kaynağı, vb.
+    details: [{
+      type: {
+        type: String
+      },
+      options: [{
+        type: String
+      }],
+      other: String
     }]
   }],
   status: {
     type: String,
-    enum: ['draft', 'active', 'closed'],
+    enum: ['draft', 'active', 'closed', 'filled'],
     default: 'draft'
   },
   applicationCount: {
@@ -68,8 +84,8 @@ const jobSchema = new mongoose.Schema({
 jobSchema?.index({ employerId: 1 });
 jobSchema?.index({ status: 1 });
 jobSchema?.index({ 'location.city': 1, 'location.district': 1 });
-jobSchema?.index({ 'requiredSkills.category': 1 });
-jobSchema?.index({ 'requiredSkills.subcategories': 1 });
+jobSchema?.index({ category: 1 });
+jobSchema?.index({ 'requiredSkills.subCategory': 1 });
 jobSchema?.index({ createdAt: -1 });
 
 module.exports = mongoose?.model('Job', jobSchema);

@@ -1,10 +1,20 @@
 const express = require('express');
 const router = express?.Router();
-const { updateProfile, getProfile, getMatchingJobs } = require('../controllers/worker.controller');
-const { protect, authorize } = require('../middleware/auth.middleware');
+const workerController = require('../controllers/worker.controller');
+const { authenticate, authorizeWorker } = require('../middleware/auth.middleware');
 
-router?.put('/profile', protect, authorize('worker'), updateProfile);
-router?.get('/profile', protect, authorize('worker'), getProfile);
-router?.get('/matching-jobs', protect, authorize('worker'), getMatchingJobs);
+// Worker profile routes (requires authentication + worker role)
+router?.put('/profile', authenticate, authorizeWorker, workerController?.updateProfile);
+router?.get('/profile', authenticate, authorizeWorker, workerController?.getProfile);
+router?.get('/profile/me', authenticate, authorizeWorker, workerController?.getCurrentProfile);
+
+// Job search with filters
+router?.get('/jobs', authenticate, authorizeWorker, workerController?.searchJobs);
+
+// Application management
+router?.get('/applications', authenticate, authorizeWorker, workerController?.getMyApplications);
+
+// Get matched jobs based on worker skills
+router?.get('/matched-jobs', authenticate, authorizeWorker, workerController?.getMatchedJobs);
 
 module.exports = router;

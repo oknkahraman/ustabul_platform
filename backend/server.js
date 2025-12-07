@@ -15,6 +15,8 @@ const employerRoutes = require('./routes/employer.routes');
 const jobRoutes = require('./routes/job.routes');
 const applicationRoutes = require('./routes/application.routes');
 const reviewRoutes = require('./routes/review.routes');
+const locationRoutes = require('./routes/location.routes');
+const skillsRoutes = require('./routes/skills.routes');
 
 // Initialize Express app
 const app = express();
@@ -52,12 +54,14 @@ mongoose?.connect(process.env.MONGODB_URI)?.then(() => console.log('✅ MongoDB 
   });
 
 // Routes
-app?.use('/api/auth', authRoutes);
-app?.use('/api/workers', workerRoutes);
-app?.use('/api/employers', employerRoutes);
-app?.use('/api/jobs', jobRoutes);
-app?.use('/api/applications', applicationRoutes);
-app?.use('/api/reviews', reviewRoutes);
+app?.use('/api/auth', require('./routes/auth.routes'));
+app?.use('/api/workers', require('./routes/worker.routes'));
+app?.use('/api/employers', require('./routes/employer.routes'));
+app?.use('/api/jobs', require('./routes/job.routes'));
+app?.use('/api/applications', require('./routes/application.routes'));
+app?.use('/api/reviews', require('./routes/review.routes'));
+app?.use('/api/locations', require('./routes/location.routes'));
+app?.use('/api/skills', require('./routes/skills.routes'));
 
 // Health check route
 app?.get('/api/health', (req, res) => {
